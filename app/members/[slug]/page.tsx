@@ -18,7 +18,7 @@ import {
   type Graduate,
 } from "@/content/members";
 import { posts, replyTargetLabel, replyText, type PostPlatform } from "@/content/posts";
-import { tracks } from "@/content/tracks";
+import { trackPlatformLabel, trackStatsLabel, tracks } from "@/content/tracks";
 
 export function generateStaticParams() {
   return [...members, ...graduates].map((member) => ({ slug: member.slug }));
@@ -113,16 +113,35 @@ export default async function MemberPage({
         <div className="mt-8 md:mt-0">
           {songs.length > 0 ? (
             <section>
-              <h2 className="text-lg font-bold">음원</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">음원</h2>
+                <Link href="/music" className="text-sm font-medium text-violet">
+                  더보기
+                </Link>
+              </div>
               <ul className="mt-3 space-y-2">
-                {songs.map((track) => (
-                  <li key={track.title}>
-                    <a href={member.youtube} target="_blank" rel="noreferrer" className="block rounded-2xl bg-[#f2f3f7] px-4 py-3">
-                      <p className="text-[15px] font-medium">{track.title}</p>
-                      <p className="mt-0.5 text-xs text-muted">{track.date}</p>
+                {songs.slice(0, 6).map((track) => {
+                  const stats = trackStatsLabel(track);
+                  return (
+                  <li key={track.id}>
+                    <a href={track.href} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-2xl bg-[#f2f3f7] px-3 py-3">
+                      {track.thumb ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={track.thumb} alt="" className="size-14 shrink-0 rounded-xl object-cover" referrerPolicy="no-referrer" />
+                      ) : null}
+                      <span className="min-w-0">
+                        <span className="block text-[11px] font-medium text-violet">
+                          {track.kind === "cover" ? "커버" : "오리지널"}
+                          {` · ${trackPlatformLabel(track)}`}
+                          {track.date ? ` · ${track.date}` : ""}
+                        </span>
+                        <span className="mt-1 block line-clamp-2 text-[15px] font-medium leading-5">{track.title}</span>
+                        {stats ? <span className="mt-1 block text-[12px] text-[#8b90a0]">{stats}</span> : null}
+                      </span>
                     </a>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </section>
           ) : null}

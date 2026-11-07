@@ -31,7 +31,9 @@ jobs:
           node scripts/fetch-live.mjs
           node scripts/fetch-posts.mjs
           node scripts/fetch-goods.mjs
-          if git diff --quiet -- content/live.json content/posts.json content/goods-sales.json; then
+          node scripts/fetch-tracks.mjs
+          node scripts/fetch-spotify.mjs
+          if git diff --quiet -- content/live.json content/posts.json content/goods-sales.json content/tracks.json; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -47,8 +49,8 @@ jobs:
       - if: steps.live.outputs.changed == 'true'
         continue-on-error: true
         run: |
-          git add content/live.json content/posts.json content/goods-sales.json
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Update live status, posts, and goods sale dates."
+          git add content/live.json content/posts.json content/goods-sales.json content/tracks.json
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Update live status, posts, goods, and tracks."
           git push
 
   deploy:

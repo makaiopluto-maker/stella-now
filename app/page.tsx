@@ -1,9 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { LiveNow } from "@/components/live-now";
-import { getMember } from "@/content/members";
+import { OshiHome } from "@/components/oshi-home";
 import { posts } from "@/content/posts";
-import { tracks } from "@/content/tracks";
+import { trackArtistName, trackPlatformLabel, tracks } from "@/content/tracks";
 
 export default function HomePage() {
   return (
@@ -23,6 +23,8 @@ export default function HomePage() {
         <LiveNow />
       </section>
 
+      <OshiHome />
+
       <div className="md:grid md:grid-cols-2 md:gap-x-12">
       <Section title="공지사항" href="/posts?platform=cafe">
         {notices.length === 0 ? (
@@ -41,18 +43,24 @@ export default function HomePage() {
         )}
       </Section>
 
-      <Section title="멤버 소식" href="/posts">
-        {tracks.length === 0 ? (
-          <Empty label="멤버 소식이 없습니다" />
+      <Section title="최근 음원" href="/music">
+        {recentTracks.length === 0 ? (
+          <Empty label="모은 음원이 없습니다" />
         ) : (
           <ul className="space-y-3">
-            {tracks.map((track) => {
-              const member = getMember(track.memberSlug);
+            {recentTracks.map((track) => {
+              const artist = trackArtistName(track.memberSlug);
               return (
-                <li key={track.title}>
-                  <p className="text-xs text-muted">{track.date}</p>
-                  <p className="mt-0.5 text-[15px] font-medium">{track.title}</p>
-                  <p className="text-sm text-muted">{member?.name}</p>
+                <li key={track.id}>
+                  <a href={track.href} target="_blank" rel="noreferrer" className="block">
+                    <p className="text-xs text-muted">
+                      {track.kind === "cover" ? "커버" : "오리지널"}
+                      {` · ${trackPlatformLabel(track)}`}
+                      {track.date ? ` · ${track.date}` : ""}
+                    </p>
+                    <p className="mt-0.5 line-clamp-2 text-[15px] font-medium leading-6">{track.title}</p>
+                    <p className="text-sm text-muted">{artist}</p>
+                  </a>
                 </li>
               );
             })}
@@ -65,6 +73,7 @@ export default function HomePage() {
 }
 
 const notices = posts.filter((post) => post.platform === "cafe").slice(0, 4);
+const recentTracks = tracks.slice(0, 4);
 
 function Section({
   title,

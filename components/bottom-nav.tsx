@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { hasNewNotices, subscribeNoticeBadge } from "@/lib/notice-badge";
 
 const tabs = [
   { href: "/", label: "홈", icon: "home" },
@@ -12,6 +14,12 @@ const tabs = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  const [fresh, setFresh] = useState(false);
+
+  useEffect(() => {
+    setFresh(hasNewNotices());
+    return subscribeNoticeBadge(() => setFresh(hasNewNotices()));
+  }, [pathname]);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white md:hidden">
@@ -27,12 +35,17 @@ export function BottomNav() {
             <Link
               key={tab.href}
               href={tab.href}
-              className={`flex flex-col items-center gap-1 py-1 text-[11px] ${
+              className={`relative flex flex-col items-center gap-1 py-1 text-[11px] ${
                 active ? "text-violet" : "text-[#b0b4be]"
               }`}
               aria-current={active ? "page" : undefined}
             >
-              <TabIcon name={tab.icon} active={active} />
+              <span className="relative">
+                <TabIcon name={tab.icon} active={active} />
+                {tab.icon === "posts" && fresh && !pathname.startsWith("/posts") ? (
+                  <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-violet" />
+                ) : null}
+              </span>
               {tab.label}
             </Link>
           );

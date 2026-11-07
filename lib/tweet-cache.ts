@@ -53,6 +53,9 @@ function hook() {
   if (hooked || typeof window === "undefined") return;
   hooked = true;
   window.addEventListener("pagehide", () => persist());
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") persist();
+  });
 }
 
 function persist() {

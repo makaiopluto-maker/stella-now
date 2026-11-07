@@ -6,11 +6,16 @@ import { ProfileAvatar } from "@/components/profile-avatar";
 import { fanartTags, members, shortName } from "@/content/members";
 import { posts, replyTargetLabel, replyText, type Post, type PostPlatform } from "@/content/posts";
 import { ExternalLink } from "@/components/external-link";
+import { isBookmarked, subscribeBookmarks, toggleBookmark } from "@/lib/bookmarks";
 import { saveRemoteFile } from "@/lib/save-file";
 import { fetchCafeNoticePage } from "@/lib/cafe-notices";
 import { fetchFandingPage } from "@/lib/fanding-posts";
+import { markNoticesSeen } from "@/lib/notice-badge";
+import { readFlag, subscribePref } from "@/lib/prefs";
 import { flushTweetArchive, readTweetArchive, rememberTweets } from "@/lib/tweet-cache";
 import { fetchOwnPosts, fetchTaggedPosts, fetchTweetCount } from "@/lib/x-timeline";
+
+const hideRepliesKey = "stella-now-hide-replies";
 
 const platforms = [
   { id: "all", label: "전체" },
@@ -43,6 +48,9 @@ export function PostFeed() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [routeReady, setRouteReady] = useState(false);
   const [restored, setRestored] = useState(false);
+  const [hideReplies, setHideReplies] = useState(false);
+  const [bookmarkTick, setBookmarkTick] = useState(0);
+  const [savedOnly, setSavedOnly] = useState(false);
   const keptHistory = useRef(false);
   const wantTweets = routeReady && member !== "none" && (tag === "all" || tag === "none");
   priorityRef.current = member === "none" ? "all" : member;
@@ -74,10 +82,16 @@ export function PostFeed() {
     function save() {
       flushTweetArchive();
     }
+    function onHidden() {
+      if (document.visibilityState === "hidden") save();
+    }
     window.addEventListener("pagehide", save);
+    document.addEventListener("visibilitychange", onHidden);
     return () => {
       cancel = true;
       window.removeEventListener("pagehide", save);
+      document.removeEventListener("visibilitychange", onHidden);
+      save();
     };
   }, []);
 
@@ -90,9 +104,9 @@ export function PostFeed() {
       if (stop) return;
       for (const post of archive.posts) if (post.platform === "cafe") known.add(post.id);
       const saved = archive.cursors["cafe-page"];
-      const done = saved === null;
+      const done = Object.prototype.hasOwnProperty.call(archive.cursors, "cafe-page") && saved === null;
       let page = done ? 1 : Number(saved) || 1;
-      setCafePaging(true);
+      if (!done) setCafePaging(true);
       try {
         while (!stop && page <= 40) {
           const result = await fetchCafeNoticePage(page);
@@ -104,6 +118,7 @@ export function PostFeed() {
           if (novel.length > 0) setFresh((current) => mergePosts(novel, current));
           rememberTweets(novel, { "cafe-page": next });
           if (!result.hasNext || (done && novel.length === 0)) break;
+          if (done) break;
           page += 1;
         }
       } catch {
@@ -125,9 +140,9 @@ export function PostFeed() {
       if (stop) return;
       for (const post of archive.posts) if (post.platform === "fanding") known.add(post.id);
       const saved = archive.cursors["fanding-all"];
-      const done = saved === null;
+      const done = Object.prototype.hasOwnProperty.call(archive.cursors, "fanding-all") && saved === null;
       let cursor = done ? undefined : saved || undefined;
-      setFandingPaging(true);
+      if (!done) setFandingPaging(true);
       try {
         while (!stop) {
           const result = await fetchFandingPage(cursor);
@@ -139,6 +154,7 @@ export function PostFeed() {
           if (novel.length > 0) setFresh((current) => mergePosts(novel, current));
           rememberTweets(novel, { "fanding-all": next });
           if (!result.next || (done && novel.length === 0)) break;
+          if (done) break;
           cursor = result.next;
         }
       } catch {
@@ -157,7 +173,15 @@ export function PostFeed() {
     if (slug && members.some((item) => item.slug === slug)) setMember(slug);
     const requested = params.get("platform");
     if (requested === "fanding" || requested === "cafe" || requested === "x") setPlatform(requested);
+    setHideReplies(readFlag(hideRepliesKey));
+    markNoticesSeen();
     setRouteReady(true);
+    const stopHide = subscribePref(hideRepliesKey, () => setHideReplies(readFlag(hideRepliesKey)));
+    const stopBooks = subscribeBookmarks(() => setBookmarkTick((value) => value + 1));
+    return () => {
+      stopHide();
+      stopBooks();
+    };
   }, []);
 
   useEffect(() => {
@@ -257,6 +281,12 @@ export function PostFeed() {
 
   useEffect(() => {
     if (!loaded || !wantTweets) {
+      setPaging(false);
+      return;
+    }
+    // Saved history stays on the device. Opening the app only checks for new posts;
+    // older pages resume when the user asks for more.
+    if (keptHistory.current && walkId === 0) {
       setPaging(false);
       return;
     }
@@ -367,10 +397,13 @@ export function PostFeed() {
   const scopeTotal = member === "all" || member === "none" ? members.reduce((sum, item) => sum + (totals[item.slug] ?? 0), 0) : (totals[member] ?? 0);
   const totalsReady = member === "all" || member === "none" ? members.every((item) => totals[item.slug] !== undefined) : totals[member] !== undefined;
 
+  void bookmarkTick;
   const visible = feed.filter((post) => {
     if (!matchesScope(post, member, tag)) return false;
     if (platform !== "all" && post.platform !== platform) return false;
     if (!matchesQuery(post, query)) return false;
+    if (hideReplies && post.replyTo) return false;
+    if (savedOnly && !isBookmarked(post.id)) return false;
     return true;
   });
 
@@ -427,7 +460,9 @@ export function PostFeed() {
         {platforms.map((item) => (
           <FilterChip key={item.id} active={platform === item.id} label={item.label} onClick={() => setPlatform(item.id)} />
         ))}
+        <FilterChip active={savedOnly} label="저장" onClick={() => setSavedOnly((value) => !value)} />
       </div>
+      {hideReplies ? <p className="mt-3 text-sm text-muted">답글을 숨기고 있어요. 설정에서 끌 수 있습니다.</p> : null}
       {(member !== "all" && member !== "none") || (tag !== "all" && tag !== "none") ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {member !== "all" && member !== "none" ? <FilterChip active label={members.find((item) => item.slug === member)?.name ?? member} onClick={() => setMember("all")} /> : null}
@@ -625,18 +660,21 @@ function PostRow({
               ))}
             </div>
           ) : null}
-          {post.platform === "x" && /^\d+$/.test(post.id) ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <ExternalLink href={`https://x.com/intent/retweet?tweet_id=${post.id}`} className="inline-flex items-center gap-1.5 rounded-full bg-[#f2f3f7] px-3 py-1.5 text-sm font-medium text-ink">
-                <RepostIcon />
-                리트윗
-              </ExternalLink>
-              <ExternalLink href={`https://x.com/intent/like?tweet_id=${post.id}`} className="inline-flex items-center gap-1.5 rounded-full bg-[#f2f3f7] px-3 py-1.5 text-sm font-medium text-ink">
-                <HeartIcon />
-                하트
-              </ExternalLink>
-            </div>
-          ) : null}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <BookmarkButton post={post} />
+            {post.platform === "x" && /^\d+$/.test(post.id) ? (
+              <>
+                <ExternalLink href={`https://x.com/intent/retweet?tweet_id=${post.id}`} className="inline-flex items-center gap-1.5 rounded-full bg-[#f2f3f7] px-3 py-1.5 text-sm font-medium text-ink">
+                  <RepostIcon />
+                  리트윗
+                </ExternalLink>
+                <ExternalLink href={`https://x.com/intent/like?tweet_id=${post.id}`} className="inline-flex items-center gap-1.5 rounded-full bg-[#f2f3f7] px-3 py-1.5 text-sm font-medium text-ink">
+                  <HeartIcon />
+                  하트
+                </ExternalLink>
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
     </li>
@@ -783,6 +821,35 @@ function FilterChip({
     >
       {label}
     </button>
+  );
+}
+
+function BookmarkButton({ post }: { post: Post }) {
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    setSaved(isBookmarked(post.id));
+    return subscribeBookmarks(() => setSaved(isBookmarked(post.id)));
+  }, [post.id]);
+  return (
+    <button
+      type="button"
+      aria-pressed={saved}
+      onClick={() => setSaved(toggleBookmark(post))}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${
+        saved ? "bg-[#f3f0ff] text-violet" : "bg-[#f2f3f7] text-ink"
+      }`}
+    >
+      <BookmarkIcon filled={saved} />
+      {saved ? "저장됨" : "저장"}
+    </button>
+  );
+}
+
+function BookmarkIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="size-4" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" aria-hidden>
+      <path d="M7 4.5h10a1 1 0 0 1 1 1V19l-6-3.2L6 19V5.5a1 1 0 0 1 1-1Z" strokeLinejoin="round" />
+    </svg>
   );
 }
 

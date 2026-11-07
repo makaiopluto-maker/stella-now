@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ExternalLink } from "@/components/external-link";
+import { PrefSwitch } from "@/components/pref-switch";
 import { useOshi } from "@/components/oshi";
 import { ProfileAvatar } from "@/components/profile-avatar";
+import { scheduleAlertKey } from "@/components/schedule-alert";
 import { members, shortName } from "@/content/members";
 
 const accounts = [
@@ -16,8 +18,11 @@ const accounts = [
 const shortcuts = [
   { href: "/calendar", label: "일정", detail: "방송과 생일" },
   { href: "/goods", label: "굿즈", detail: "팬딩 상품" },
-  { href: "/music", label: "음원", detail: "유튜브" },
+  { href: "/bookmarks", label: "저장한 글", detail: "북마크" },
+  { href: "/music", label: "음원", detail: "유튜브 · 스포티파이" },
 ];
+
+const hideRepliesKey = "stella-now-hide-replies";
 
 export default function SettingsPage() {
   const { slug, alert, choose, clear, setAlerts } = useOshi();
@@ -63,6 +68,27 @@ export default function SettingsPage() {
             <span className={`absolute top-0.5 size-6 rounded-full bg-white ${alert ? "left-5" : "left-0.5"}`} />
           </button>
         </div>
+        <PrefSwitch
+          storageKey={scheduleAlertKey}
+          label="일정 알림"
+          detail="생일·판매 종료 같은 오늘 일정을 앱이 켜져 있을 때 알려줍니다."
+          ariaLabel="일정 알림"
+          onEnable={async () => {
+            if (typeof Notification !== "undefined" && Notification.permission === "default") {
+              try {
+                await Notification.requestPermission();
+              } catch {
+                // In-app banner still works without device notifications.
+              }
+            }
+          }}
+        />
+        <PrefSwitch
+          storageKey={hideRepliesKey}
+          label="답글 숨기기"
+          detail="게시물 탭에서 X 답글을 가립니다."
+          ariaLabel="답글 숨기기"
+        />
         <ul className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
           {members.map((member) => {
             const active = member.slug === slug;
