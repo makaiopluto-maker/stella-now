@@ -54,7 +54,16 @@ public class MusicKeepAliveService extends Service {
   private PowerManager.WakeLock wakeLock;
   private AudioManager audioManager;
   private AudioFocusRequest focusRequest;
-  private final AudioManager.OnAudioFocusChangeListener focusListener = (change) -> {};
+  private boolean holdingFocus = false;
+  private final AudioManager.OnAudioFocusChangeListener focusListener = (change) -> {
+    if (change == AudioManager.AUDIOFOCUS_LOSS ||
+        change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT ||
+        change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
+      holdingFocus = false;
+    } else if (change == AudioManager.AUDIOFOCUS_GAIN) {
+      holdingFocus = true;
+    }
+  };
 
   interface EndedListener {
     void onEnded();
@@ -112,6 +121,9 @@ public class MusicKeepAliveService extends Service {
 
     if (ACTION_PAUSE.equals(action)) {
       wantPlay = false;
+      // Give other apps (YouTube, etc.) the audio focus back immediately.
+      abandonFocus();
+      releaseWakeLock();
       mainHandler.post(() -> eval("window.stellaPause && window.stellaPause();"));
       updateNotification();
       return START_STICKY;
@@ -121,7 +133,7 @@ public class MusicKeepAliveService extends Service {
       wantPlay = true;
       running = true;
       acquireWakeLock();
-      requestFocus();
+      requestFocusIfNeeded();
       mainHandler.post(() -> {
         ensurePlayer();
         eval("window.stellaResume && window.stellaResume();");
@@ -143,7 +155,7 @@ public class MusicKeepAliveService extends Service {
     ensureChannel();
     running = true;
     acquireWakeLock();
-    requestFocus();
+    requestFocusIfNeeded();
     if (Build.VERSION.SDK_INT >= 29) {
       startForeground(NOTIFY_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
     } else {
@@ -300,9 +312,11 @@ public class MusicKeepAliveService extends Service {
     wakeLock = null;
   }
 
-  private void requestFocus() {
+  private void requestFocusIfNeeded() {
+    if (holdingFocus) return;
     audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
     if (audioManager == null) return;
+    int result;
     if (Build.VERSION.SDK_INT >= 26) {
       if (focusRequest == null) {
         focusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
@@ -316,18 +330,27 @@ public class MusicKeepAliveService extends Service {
           .setAcceptsDelayedFocusGain(true)
           .build();
       }
-      audioManager.requestAudioFocus(focusRequest);
+      result = audioManager.requestAudioFocus(focusRequest);
     } else {
-      audioManager.requestAudioFocus(
+      result = audioManager.requestAudioFocus(
         focusListener,
         AudioManager.STREAM_MUSIC,
         AudioManager.AUDIOFOCUS_GAIN
       );
     }
+    holdingFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+      || result == AudioManager.AUDIOFOCUS_REQUEST_DELAYED;
   }
 
   private void abandonFocus() {
-    if (audioManager == null) return;
+    if (!holdingFocus && audioManager == null) {
+      holdingFocus = false;
+      return;
+    }
+    if (audioManager == null) {
+      holdingFocus = false;
+      return;
+    }
     try {
       if (Build.VERSION.SDK_INT >= 26 && focusRequest != null) {
         audioManager.abandonAudioFocusRequest(focusRequest);
@@ -337,6 +360,7 @@ public class MusicKeepAliveService extends Service {
     } catch (Exception ignored) {
       // ignore
     }
+    holdingFocus = false;
   }
 
   private static String jsonString(String value) {

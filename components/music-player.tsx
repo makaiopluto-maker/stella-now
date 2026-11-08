@@ -216,10 +216,13 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setPlaying(true);
   }, [slug]);
 
-  // Native track changes → load in the service WebView (survives app backgrounding).
+  // Native: load a track only when the id changes. Pause/resume go through togglePlay
+  // so we don't spam audio focus and interrupt other apps (e.g. YouTube).
+  const lastNativeVideoRef = useRef<string | null>(null);
   useEffect(() => {
     if (!nativeEngine) return;
     if (!track) {
+      lastNativeVideoRef.current = null;
       void nativeStopMusic();
       return;
     }
@@ -228,17 +231,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       setPlaying(false);
       return;
     }
-    if (playingRef.current) {
-      void nativePlayMusic(videoId, track.title, trackArtistName(track.memberSlug));
-    }
+    if (!playingRef.current) return;
+    if (lastNativeVideoRef.current === videoId) return;
+    lastNativeVideoRef.current = videoId;
+    void nativePlayMusic(videoId, track.title, trackArtistName(track.memberSlug));
   }, [track, nativeEngine]);
-
-  // Native pause / resume without reloading the video.
-  useEffect(() => {
-    if (!nativeEngine || !track) return;
-    if (playing) void nativeResumeMusic();
-    else void nativePauseMusic();
-  }, [playing, nativeEngine, track]);
 
   // Web fallback: hidden YouTube iframe in the page.
   useEffect(() => {
