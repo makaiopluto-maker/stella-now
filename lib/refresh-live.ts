@@ -10,7 +10,7 @@ type LivePayload = {
 };
 
 const publishedLive =
-  "https://api.github.com/repos/cursorhbcloud-crypto/stella-now/contents/content/live.json";
+  "https://api.github.com/repos/makaiopluto-maker/stella-now/contents/content/live.json";
 
 export function parseLiveStatus(payload: LivePayload): LiveInfo {
   const content = payload?.content;
@@ -35,15 +35,28 @@ function normalizeLive(value: unknown): LiveInfo {
   return { live: false, viewers: 0, openDate: null };
 }
 
-export async function fetchPublishedLive(): Promise<Record<string, LiveInfo>> {
-  const response = await fetch(`${publishedLive}?t=${Date.now()}`, {
-    cache: "no-store",
-    headers: { Accept: "application/vnd.github.raw+json" },
-  });
-  if (!response.ok) throw new Error(String(response.status));
-  const data: unknown = await response.json();
+function parsePublishedLive(data: unknown): Record<string, LiveInfo> {
   if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("bad live file");
   return Object.fromEntries(Object.entries(data).map(([slug, value]) => [slug, normalizeLive(value)]));
+}
+
+async function fetchJson(url: string, headers?: HeadersInit): Promise<unknown> {
+  const response = await fetch(url, { cache: "no-store", headers });
+  if (!response.ok) throw new Error(String(response.status));
+  return response.json();
+}
+
+export async function fetchPublishedLive(): Promise<Record<string, LiveInfo>> {
+  const stamp = Date.now();
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+  // Prefer same-origin snapshot (no GitHub API rate limit). Fall back to the repo file on main.
+  try {
+    return parsePublishedLive(await fetchJson(`${basePath}/live.json?t=${stamp}`));
+  } catch {
+    return parsePublishedLive(
+      await fetchJson(`${publishedLive}?t=${stamp}`, { Accept: "application/vnd.github.raw+json" }),
+    );
+  }
 }
 
 function channelIdOf(chzzk: string) {
@@ -110,19 +123,35 @@ async function readMembers(
   return rows.filter((row): row is readonly [string, LiveInfo] => row !== null);
 }
 
+async function fetchPublishedAndNotify(onUpdate?: (slug: string, info: LiveInfo) => void) {
+  const published = await fetchPublishedLive();
+  for (const [slug, info] of Object.entries(published)) onUpdate?.(slug, info);
+  return published;
+}
+
 export async function refreshMemberLives(
   people: { slug: string; chzzk: string }[],
   onUpdate?: (slug: string, info: LiveInfo) => void,
 ): Promise<Record<string, LiveInfo>> {
   const { Capacitor } = await import("@capacitor/core");
-  const fresh = Capacitor.isNativePlatform()
-    ? await readMembers(
-        people,
-        (channelId) => readChzzkDirect(`https://api.chzzk.naver.com/polling/v2/channels/${channelId}/live-status`),
-        onUpdate,
-      )
-    : await readMembers(people, readChzzkPage, onUpdate);
-  // A failed request must not mark anyone offline. Only a real Chzzk answer replaces the snapshot.
-  if (fresh.length === 0) return fetchPublishedLive();
+  if (Capacitor.isNativePlatform()) {
+    const fresh = await readMembers(
+      people,
+      (channelId) => readChzzkDirect(`https://api.chzzk.naver.com/polling/v2/channels/${channelId}/live-status`),
+      onUpdate,
+    );
+    // A failed request must not mark anyone offline. Only a real Chzzk answer replaces the snapshot.
+    if (fresh.length === 0) return fetchPublishedAndNotify(onUpdate);
+    return Object.fromEntries(fresh);
+  }
+
+  // Static GitHub Pages has no /chzzk-live rewrite — use the cron-published live.json.
+  // Local `next dev` still proxies Chzzk, then falls back if every channel fails.
+  if (process.env.NODE_ENV === "production") {
+    return fetchPublishedAndNotify(onUpdate);
+  }
+
+  const fresh = await readMembers(people, readChzzkPage, onUpdate);
+  if (fresh.length === 0) return fetchPublishedAndNotify(onUpdate);
   return Object.fromEntries(fresh);
 }

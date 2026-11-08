@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   output: "export",
   trailingSlash: true,
   basePath,
+  env: {
+    NEXT_PUBLIC_BASE_PATH: basePath,
+  },
   images: { unoptimized: true },
   devIndicators: false,
   ...(process.env.NODE_ENV === "production"
