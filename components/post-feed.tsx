@@ -13,7 +13,7 @@ import { fetchFandingPage } from "@/lib/fanding-posts";
 import { markNoticesSeen } from "@/lib/notice-badge";
 import { readFlag, subscribePref } from "@/lib/prefs";
 import { flushTweetArchive, readTweetArchive, rememberTweets } from "@/lib/tweet-cache";
-import { fetchOwnPosts, fetchTaggedPosts, fetchTweetCount } from "@/lib/x-timeline";
+import { fetchOwnPosts, fetchTaggedPosts } from "@/lib/x-timeline";
 
 const hideRepliesKey = "stella-now-hide-replies";
 
@@ -33,7 +33,6 @@ export function PostFeed() {
   const [tag, setTag] = useState("all");
   const [fresh, setFresh] = useState<Post[]>([]);
   const [cursors, setCursors] = useState<Record<string, string | null>>({});
-  const [totals, setTotals] = useState<Record<string, number>>({});
   const cursorRef = useRef<Record<string, string | null>>({});
   const priorityRef = useRef("all");
   const [loaded, setLoaded] = useState(false);
@@ -220,24 +219,6 @@ export function PostFeed() {
   }, [member, tag, platform, query]);
 
   useEffect(() => {
-    if (!wantTweets || !loaded) return;
-    let cancel = false;
-    void Promise.all(
-      members.map(async (item) => {
-        const handle = item.x.split("/").filter(Boolean).pop() ?? "";
-        const count = await fetchTweetCount(handle);
-        return [item.slug, count ?? 0] as const;
-      }),
-    ).then((rows) => {
-      if (cancel) return;
-      setTotals(Object.fromEntries(rows));
-    });
-    return () => {
-      cancel = true;
-    };
-  }, [wantTweets, loaded]);
-
-  useEffect(() => {
     if (tag === "all" || tag === "none") return;
     const slug = fanartTags.find((item) => item.tag === tag)?.slug;
     let stop = false;
@@ -414,10 +395,6 @@ export function PostFeed() {
       x: scoped.filter((post) => post.platform === "x").length,
     };
   }, [feed, member, tag]);
-  const loadedTweets = feed.filter((post) => post.platform === "x" && !isFanartPost(post) && (member === "all" || member === "none" || post.memberSlug === member)).length;
-  const scopeTotal = member === "all" || member === "none" ? members.reduce((sum, item) => sum + (totals[item.slug] ?? 0), 0) : (totals[member] ?? 0);
-  const totalsReady = member === "all" || member === "none" ? members.every((item) => totals[item.slug] !== undefined) : totals[member] !== undefined;
-
   void bookmarkTick;
   const visible = feed.filter((post) => {
     if (!matchesScope(post, member, tag)) return false;
@@ -490,19 +467,6 @@ export function PostFeed() {
           {tag !== "all" && tag !== "none" ? <FilterChip active label={tag} onClick={() => setTag("all")} /> : null}
         </div>
       ) : null}
-      {showTweetHistory && restored && totalsReady && scopeTotal > 0 ? (
-        <p className="mt-3 text-sm leading-6 text-muted">
-          {member === "all" ? "멤버 계정" : "이 계정"}에 있는 글은 {scopeTotal.toLocaleString("ko-KR")}개입니다. 지금까지 직접 쓴 글 {loadedTweets.toLocaleString("ko-KR")}개를 불러왔습니다.
-          {paging ? " 이전 글을 이어서 가져오는 중입니다." : ""}
-        </p>
-      ) : null}
-      {cafePaging ? (
-        <p className="mt-3 text-sm leading-6 text-muted">카페 공지를 가져오는 중 · {counts.cafe.toLocaleString("ko-KR")}개</p>
-      ) : null}
-      {fandingPaging ? (
-        <p className="mt-3 text-sm leading-6 text-muted">팬딩 글을 가져오는 중 · {counts.fanding.toLocaleString("ko-KR")}개</p>
-      ) : null}
-
       {filtersOpen ? (
         <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 md:items-center" onClick={() => setFiltersOpen(false)}>
           <div
@@ -528,11 +492,6 @@ export function PostFeed() {
                 />
               ))}
             </div>
-            {showTweetHistory && totalsReady && scopeTotal > 0 ? (
-              <p className="mt-3 text-sm leading-6 text-muted">
-                {member === "all" ? "멤버 계정" : "이 계정"}에 있는 글은 {scopeTotal.toLocaleString("ko-KR")}개입니다. 화면의 숫자는 지금까지 불러온 직접 쓴 글입니다.
-              </p>
-            ) : null}
             <p className="mt-5 text-sm text-muted">멤버</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <FilterChip active={member === "all"} label="전체" onClick={() => setMember(member === "all" ? "none" : "all")} />
@@ -589,9 +548,6 @@ export function PostFeed() {
       )}
       {shown < visible.length ? <LoadTail onReach={() => setShown((count) => count + 40)} /> : null}
 
-      {paging && rows.length > 0 && showTweetHistory ? (
-        <p className="mt-4 text-center text-sm text-muted">이전 글을 가져오는 중 · {loadedTweets.toLocaleString("ko-KR")}개</p>
-      ) : null}
       {canLoadMore ? (
         <button
           type="button"

@@ -3,18 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ApkDownload } from "@/components/apk-download";
-import { ExternalLink } from "@/components/external-link";
 import { PrefSwitch } from "@/components/pref-switch";
 import { useOshi } from "@/components/oshi";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { scheduleAlertKey } from "@/components/schedule-alert";
 import { members, shortName } from "@/content/members";
-
-const accounts = [
-  { name: "X", href: "https://x.com/i/flow/login" },
-  { name: "치지직", href: "https://nid.naver.com/nidlogin.login?url=https%3A%2F%2Fchzzk.naver.com%2F" },
-  { name: "팬딩", href: "https://fanding.kr/my" },
-];
 
 const shortcuts = [
   { href: "/calendar", label: "일정", detail: "방송과 생일" },
@@ -136,22 +129,6 @@ export default function SettingsPage() {
 
       <ApkDownload />
 
-      <section className="mt-8">
-        <h2 className="text-lg font-bold">계정 연결</h2>
-        <p className="mt-1 text-sm leading-6 text-muted">
-          연결하면 그 계정 창만 따로 열리고 이 화면은 그대로입니다. 비밀번호는 저장하지 않습니다.
-        </p>
-        <ul className="mt-3 divide-y divide-line overflow-hidden rounded-xl border border-line">
-          {accounts.map((account) => (
-            <li key={account.name} className="flex items-center justify-between gap-3 px-4 py-3.5">
-              <span className="font-medium">{account.name}</span>
-              <ExternalLink href={account.href} className="text-sm font-medium text-violet">
-                연결
-              </ExternalLink>
-            </li>
-          ))}
-        </ul>
-      </section>
       <p className="mt-8 text-sm leading-6 text-muted">
         팬이 만든 안내 페이지입니다. 방송은 치지직, 음원은 유튜브, 굿즈 결제와 재고는 팬딩에서
         이어집니다.
