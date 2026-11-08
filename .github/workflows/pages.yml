@@ -24,9 +24,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Root deploy for custom domain stellanow.kro.kr (no /stella-now basePath).
       - run: npm run build
-        env:
-          GITHUB_PAGES: "1"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out

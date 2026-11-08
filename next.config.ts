@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
-// Free GitHub Pages project URL: https://makaiopluto-maker.github.io/stella-now/
-// Capacitor / local builds omit GITHUB_PAGES and stay at the origin root.
-const basePath = process.env.GITHUB_PAGES === "1" ? "/stella-now" : "";
+// Custom domain https://stellanow.kro.kr serves at the site root.
+// Capacitor / local builds stay at the origin root as well.
+const basePath = process.env.SITE_BASE_PATH ?? "";
 
 const nextConfig: NextConfig = {
   output: "export",

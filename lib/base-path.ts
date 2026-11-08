@@ -1,4 +1,4 @@
-/** GitHub Pages project basePath (`/stella-now`) or empty for Capacitor / local. */
+/** Site basePath — empty for custom domain / Capacitor / local. */
 export function siteBasePath() {
   return process.env.NEXT_PUBLIC_BASE_PATH || "";
 }
