@@ -24,8 +24,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Root deploy for custom domain stellanow.kr (no /stella-now basePath).
       - run: npm run build
+        env:
+          GITHUB_PAGES: "1"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out
@@ -39,6 +40,3 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
-      # Custom domain must be set once by a repo admin:
-      # Settings → Pages → Custom domain → stellanow.kr → Save → Enforce HTTPS.
-      # (GITHUB_TOKEN cannot update Pages cname on this repo.)
