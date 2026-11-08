@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ApkDownload } from "@/components/apk-download";
 import { ExternalLink } from "@/components/external-link";
 import { PrefSwitch } from "@/components/pref-switch";
 import { useOshi } from "@/components/oshi";
@@ -124,6 +125,8 @@ export default function SettingsPage() {
           ))}
         </ul>
       </section>
+
+      <ApkDownload />
 
       <section className="mt-8">
         <h2 className="text-lg font-bold">계정 연결</h2>
