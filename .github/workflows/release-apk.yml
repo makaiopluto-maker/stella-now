@@ -50,11 +50,11 @@ jobs:
       - name: Prepare artifact
         run: |
           mkdir -p dist
-          cp android/app/build/outputs/apk/release/app-release.apk dist/stella-now.apk
+          cp android/app/build/outputs/apk/release/app-release.apk dist/StellaNow.apk
           VERSION="$(node -p "require('./package.json').version")"
           printf '%s\n' "{
             \"version\": \"$VERSION\",
-            \"apk\": \"https://github.com/makaiopluto-maker/stella-now/releases/download/apk-latest/stella-now.apk\",
+            \"apk\": \"https://github.com/makaiopluto-maker/stella-now/releases/download/apk-latest/StellaNow.apk\",
             \"releases\": \"https://github.com/makaiopluto-maker/stella-now/releases/tag/apk-latest\"
           }" > dist/app-version.json
 
@@ -65,23 +65,26 @@ jobs:
           # Keep a stable download URL for the website button + in-app update check.
           STABLE_TAG="apk-latest"
           VERSION="$(node -p "require('./package.json').version")"
+          APK="dist/StellaNow.apk"
 
           if gh release view "$STABLE_TAG" >/dev/null 2>&1; then
-            gh release upload "$STABLE_TAG" dist/stella-now.apk dist/app-version.json --clobber
-            gh release edit "$STABLE_TAG" --title "Stella Now Android $VERSION" --notes "Unofficial Stella Now Android APK ($VERSION)."
+            # Drop the legacy asset name so downloads always use StellaNow.apk.
+            gh release delete-asset "$STABLE_TAG" stella-now.apk --yes 2>/dev/null || true
+            gh release upload "$STABLE_TAG" "$APK" dist/app-version.json --clobber
+            gh release edit "$STABLE_TAG" --title "StellaNow Android $VERSION" --notes "Unofficial StellaNow Android APK ($VERSION)."
           else
-            gh release create "$STABLE_TAG" dist/stella-now.apk dist/app-version.json \
-              --title "Stella Now Android $VERSION" \
-              --notes "Unofficial Stella Now Android APK ($VERSION)."
+            gh release create "$STABLE_TAG" "$APK" dist/app-version.json \
+              --title "StellaNow Android $VERSION" \
+              --notes "Unofficial StellaNow Android APK ($VERSION)."
           fi
 
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "$STABLE_TAG" ]]; then
             TAG="${GITHUB_REF_NAME}"
             if gh release view "$TAG" >/dev/null 2>&1; then
-              gh release upload "$TAG" dist/stella-now.apk dist/app-version.json --clobber
+              gh release upload "$TAG" "$APK" dist/app-version.json --clobber
             else
-              gh release create "$TAG" dist/stella-now.apk dist/app-version.json \
-                --title "Stella Now Android ${TAG}" \
-                --notes "Unofficial Stella Now Android APK (${TAG})."
+              gh release create "$TAG" "$APK" dist/app-version.json \
+                --title "StellaNow Android ${TAG}" \
+                --notes "Unofficial StellaNow Android APK (${TAG})."
             fi
           fi

@@ -10,7 +10,7 @@ copyFileSync(join(root, "content", "live.json"), join(root, "public", "live.json
 const packageVersion = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
 const manifest = {
   version: packageVersion,
-  apk: "https://github.com/makaiopluto-maker/stella-now/releases/download/apk-latest/stella-now.apk",
+  apk: "https://github.com/makaiopluto-maker/stella-now/releases/download/apk-latest/StellaNow.apk",
   releases: "https://github.com/makaiopluto-maker/stella-now/releases/tag/apk-latest",
 };
 writeFileSync(join(root, "public", "app-version.json"), `${JSON.stringify(manifest, null, 2)}\n`);

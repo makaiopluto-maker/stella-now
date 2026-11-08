@@ -1,8 +1,8 @@
 export const appDownload = {
-  version: "1.28.6",
+  version: "1.28.7",
   label: "Android APK",
-  // GitHub Releases asset name must stay stella-now.apk
-  href: "https://github.com/makaiopluto-maker/stella-now/releases/download/apk-latest/stella-now.apk",
+  // GitHub Releases asset name must stay StellaNow.apk
+  href: "https://github.com/makaiopluto-maker/stella-now/releases/download/apk-latest/StellaNow.apk",
   releasesHref: "https://github.com/makaiopluto-maker/stella-now/releases/tag/apk-latest",
   /** Always-updated manifest uploaded with each APK release. */
   versionManifestHref:
