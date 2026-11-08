@@ -138,13 +138,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       if (!player) return;
       try {
         const state = player.getPlayerState();
-        // -1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering, 5 cued
-        if (state !== 1 && state !== 3) {
+        // Only nudge when clearly paused/cued — never while buffering/playing.
+        if (state === 2 || state === 5 || state === -1) {
           player.playVideo();
-        }
-        const current = trackRef.current;
-        if (current) {
-          void syncNativeMusic(true, current.title, trackArtistName(current.memberSlug));
         }
       } catch {
         // Player mid-load.
@@ -329,15 +325,20 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
               setPlaying(true);
               void syncNativeMusic(true, title, artist);
             } else if (event.data === 2) {
-              // YouTube often auto-pauses when the app is backgrounded.
-              // If the user still wants audio, resume instead of tearing down keep-alive.
+              // Don't fight brief YouTube pauses (buffering hiccups) with instant playVideo —
+              // that was causing stutter. Keep native service up if user still wants audio.
               if (!userPausedRef.current && playingRef.current) {
-                try {
-                  event.target.playVideo();
-                } catch {
-                  // ignore
-                }
                 void syncNativeMusic(true, title, artist);
+                window.setTimeout(() => {
+                  if (cancelled || userPausedRef.current || !playingRef.current) return;
+                  try {
+                    if (event.target.getPlayerState() === 2) {
+                      event.target.playVideo();
+                    }
+                  } catch {
+                    // ignore
+                  }
+                }, 1200);
               } else {
                 setPlaying(false);
                 void syncNativeMusic(false, title, artist);
@@ -379,24 +380,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [track, destroyPlayer, stop]);
-
-  // Pause / resume without remounting when only `playing` flips before engine exists.
-  useEffect(() => {
-    const player = playerRef.current;
-    if (!player || !track) return;
-    try {
-      if (playing) player.playVideo();
-      else player.pauseVideo();
-    } catch {
-      // Player may be mid-load.
-    }
-  }, [playing, track]);
-
-  useEffect(() => {
-    return () => {
-      // Keep native service in sync only when the whole app unloads; don't stop on remount.
-    };
-  }, []);
 
   const value = useMemo(
     () => ({

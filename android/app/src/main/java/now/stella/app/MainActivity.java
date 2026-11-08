@@ -32,14 +32,21 @@ public class MainActivity extends BridgeActivity {
   @Override
   public void onPause() {
     super.onPause();
-    // Capacitor / WebView may throttle media when backgrounded. Keep timers + JS playing.
-    scheduleKeepAlive();
+    // Resume WebView timers once after Capacitor pauses — avoid hammering playVideo.
+    if (MusicKeepAliveService.isRunning()) {
+      mainHandler.removeCallbacks(keepAliveTick);
+      mainHandler.post(keepAliveTick);
+      mainHandler.postDelayed(keepAliveTick, 700);
+    }
   }
 
   @Override
   public void onStop() {
     super.onStop();
-    scheduleKeepAlive();
+    if (MusicKeepAliveService.isRunning()) {
+      mainHandler.removeCallbacks(keepAliveTick);
+      mainHandler.post(keepAliveTick);
+    }
   }
 
   @Override
@@ -55,15 +62,6 @@ public class MainActivity extends BridgeActivity {
     openPath(intent);
   }
 
-  private void scheduleKeepAlive() {
-    if (!MusicKeepAliveService.isRunning()) return;
-    keepWebViewAudioAlive();
-    mainHandler.removeCallbacks(keepAliveTick);
-    mainHandler.postDelayed(keepAliveTick, 250);
-    mainHandler.postDelayed(keepAliveTick, 1000);
-    mainHandler.postDelayed(keepAliveTick, 2500);
-  }
-
   private void keepWebViewAudioAlive() {
     if (!MusicKeepAliveService.isRunning()) return;
     Bridge bridge = getBridge();
@@ -72,6 +70,7 @@ public class MainActivity extends BridgeActivity {
     try {
       webView.onResume();
       webView.resumeTimers();
+      // JS side is debounced; safe to call lightly.
       webView.evaluateJavascript(
         "(function(){try{window.__stellaResumeMusic&&window.__stellaResumeMusic()}catch(e){}})();",
         null
