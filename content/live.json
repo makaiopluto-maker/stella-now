@@ -25,9 +25,9 @@
     "openDate": null
   },
   "tabi": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 6319,
+    "openDate": "2026-11-08 15:20:10"
   },
   "shibuki": {
     "live": false,
@@ -40,9 +40,9 @@
     "openDate": null
   },
   "nana": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 9275,
+    "openDate": "2026-11-08 14:13:21"
   },
   "riko": {
     "live": false,
