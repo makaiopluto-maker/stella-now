@@ -29,7 +29,10 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-36 build-tools;36.0.0
 
       - run: npm ci
 
@@ -52,16 +55,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            TAG="${GITHUB_REF_NAME}"
+          # Keep a stable download URL for the website button.
+          STABLE_TAG="apk-latest"
+          if gh release view "$STABLE_TAG" >/dev/null 2>&1; then
+            gh release upload "$STABLE_TAG" dist/stella-now.apk --clobber
           else
-            TAG="apk-latest"
+            gh release create "$STABLE_TAG" dist/stella-now.apk \
+              --title "Stella Now Android" \
+              --notes "Unofficial Stella Now Android APK."
           fi
 
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/stella-now.apk --clobber
-          else
-            gh release create "$TAG" dist/stella-now.apk \
-              --title "Stella Now Android ${TAG}" \
-              --notes "Unofficial Stella Now Android APK."
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" != "$STABLE_TAG" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              gh release upload "$TAG" dist/stella-now.apk --clobber
+            else
+              gh release create "$TAG" dist/stella-now.apk \
+                --title "Stella Now Android ${TAG}" \
+                --notes "Unofficial Stella Now Android APK (${TAG})."
+            fi
           fi
