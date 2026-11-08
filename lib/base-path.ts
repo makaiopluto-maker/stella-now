@@ -1,4 +1,4 @@
-/** GitHub Pages basePath (`/stella-now`) or empty for Capacitor / plain hosting. */
+/** Site basePath — empty on stellanow.kr / Capacitor / local hosting. */
 export function siteBasePath() {
   return process.env.NEXT_PUBLIC_BASE_PATH || "";
 }
