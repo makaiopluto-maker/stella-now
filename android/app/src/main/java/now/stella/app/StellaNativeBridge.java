@@ -50,4 +50,13 @@ public class StellaNativeBridge {
       )
     );
   }
+
+  @JavascriptInterface
+  public void setMusicPlaying(boolean playing, String title, String artist) {
+    if (playing) {
+      MusicKeepAliveService.start(activity.getApplicationContext(), title, artist);
+    } else {
+      MusicKeepAliveService.stop(activity.getApplicationContext());
+    }
+  }
 }

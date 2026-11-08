@@ -35,7 +35,9 @@ public class MainActivity extends BridgeActivity {
   private void attachBridge() {
     Bridge bridge = getBridge();
     if (bridge == null || bridge.getWebView() == null) return;
-    bridge.getWebView().addJavascriptInterface(new StellaNativeBridge(this), "StellaNative");
+    WebView webView = bridge.getWebView();
+    webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
+    webView.addJavascriptInterface(new StellaNativeBridge(this), "StellaNative");
   }
 
   private void openPath(Intent intent) {
