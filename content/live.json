@@ -50,9 +50,9 @@
     "openDate": null
   },
   "toa": {
-    "live": true,
-    "viewers": 7303,
-    "openDate": "2026-11-07 19:49:18"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "rang": {
     "live": false,
