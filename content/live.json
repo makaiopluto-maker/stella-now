@@ -1,13 +1,13 @@
 {
   "yuni": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 4253,
+    "openDate": "2026-11-08 18:49:27"
   },
   "huya": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 2574,
+    "openDate": "2026-11-08 17:01:05"
   },
   "hina": {
     "live": false,
@@ -15,58 +15,58 @@
     "openDate": null
   },
   "mashiro": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 3162,
+    "openDate": "2026-11-08 16:46:56"
   },
   "lize": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 2651,
+    "openDate": "2026-11-08 20:52:33"
   },
   "tabi": {
     "live": true,
-    "viewers": 6319,
+    "viewers": 5333,
     "openDate": "2026-11-08 15:20:10"
   },
   "shibuki": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 5739,
+    "openDate": "2026-11-08 18:02:40"
   },
   "rin": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 3728,
+    "openDate": "2026-11-08 19:59:32"
   },
   "nana": {
     "live": true,
-    "viewers": 9275,
-    "openDate": "2026-11-08 14:13:21"
+    "viewers": 3855,
+    "openDate": "2026-11-08 19:02:28"
   },
   "riko": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 2901,
+    "openDate": "2026-11-08 16:59:37"
   },
   "toa": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 5158,
+    "openDate": "2026-11-08 16:29:17"
   },
   "rang": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 3497,
+    "openDate": "2026-11-08 22:00:19"
   },
   "hiyori": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 25832,
+    "openDate": "2026-11-08 20:31:06"
   },
   "mary": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 10651,
+    "openDate": "2026-11-08 17:11:55"
   }
 }
