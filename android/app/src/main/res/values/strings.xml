@@ -4,6 +4,6 @@
     <string name="title_activity_main">StellaNow</string>
     <string name="package_name">now.stella.app</string>
     <string name="custom_url_scheme">now.stella.app</string>
-    <string name="widget_live_description">지금 방송 중인 스텔라이브 멤버</string>
-    <string name="widget_live_title">지금 방송 중</string>
+    <string name="widget_live_description">오시 우선 · 시청자 수와 함께 방송 멤버를 보여줍니다</string>
+    <string name="widget_live_title">StellaNow 라이브</string>
 </resources>

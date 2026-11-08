@@ -3,19 +3,14 @@ package now.stella.app;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.RemoteViews;
 
-import org.json.JSONObject;
-
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -24,25 +19,34 @@ import java.util.concurrent.Executors;
 public class LiveWidgetProvider extends AppWidgetProvider {
   private static final ExecutorService WORK = Executors.newSingleThreadExecutor();
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
-  private static final String PREFS = "stella_live_widget";
-  private static final String LAST_LIVE = "last_live_names";
 
+  // slug, short name, channel id
   private static final String[][] CHANNELS = {
-    {"유니", "45e71a76e949e16a34764deb962f9d9f"},
-    {"후야", "36ddb9bb4f17593b60f1b63cec86611d"},
-    {"히나", "b044e3a3b9259246bc92e863e7d3f3b8"},
-    {"마시로", "4515b179f86b67b4981e16190817c580"},
-    {"리제", "4325b1d5bbc321fad3042306646e2e50"},
-    {"타비", "a6c4ddb09cdb160478996007bff35296"},
-    {"시부키", "64d76089fba26b180d9c9e48a32600d9"},
-    {"린", "516937b5f85cbf2249ce31b0ad046b0f"},
-    {"나나", "4d812b586ff63f8a2946e64fa860bbf5"},
-    {"리코", "8fd39bb8de623317de90654718638b10"},
-    {"토아", "2299fad4bebb504b0978e1ec08b2f7d3"},
-    {"랑", "c657aa3592260a2b59669a72ec151936"},
-    {"히요리", "49d2c3cf8f0b2843d934ec15e82bb54c"},
-    {"메리", "792acf9ca28b42918710327e14b06b68"},
+    {"yuni", "유니", "45e71a76e949e16a34764deb962f9d9f"},
+    {"huya", "후야", "36ddb9bb4f17593b60f1b63cec86611d"},
+    {"hina", "히나", "b044e3a3b9259246bc92e863e7d3f3b8"},
+    {"mashiro", "마시로", "4515b179f86b67b4981e16190817c580"},
+    {"lize", "리제", "4325b1d5bbc321fad3042306646e2e50"},
+    {"tabi", "타비", "a6c4ddb09cdb160478996007bff35296"},
+    {"shibuki", "시부키", "64d76089fba26b180d9c9e48a32600d9"},
+    {"rin", "린", "516937b5f85cbf2249ce31b0ad046b0f"},
+    {"nana", "나나", "4d812b586ff63f8a2946e64fa860bbf5"},
+    {"riko", "리코", "8fd39bb8de623317de90654718638b10"},
+    {"toa", "토아", "2299fad4bebb504b0978e1ec08b2f7d3"},
+    {"rang", "랑", "c657aa3592260a2b59669a72ec151936"},
+    {"hiyori", "히요리", "49d2c3cf8f0b2843d934ec15e82bb54c"},
+    {"mary", "메리", "792acf9ca28b42918710327e14b06b68"},
   };
+
+  static void requestUpdate(Context context) {
+    AppWidgetManager manager = AppWidgetManager.getInstance(context);
+    int[] ids = manager.getAppWidgetIds(new ComponentName(context, LiveWidgetProvider.class));
+    if (ids.length == 0) return;
+    Intent intent = new Intent(context, LiveWidgetProvider.class);
+    intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+    intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
+    context.sendBroadcast(intent);
+  }
 
   @Override
   public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
@@ -61,47 +65,71 @@ public class LiveWidgetProvider extends AppWidgetProvider {
 
   private void refresh(Context context, AppWidgetManager manager, int widgetId) {
     WORK.execute(() -> {
-      String cached = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(LAST_LIVE, "");
+      SharedPreferences prefs = StellaPrefs.prefs(context);
+      String oshiSlug = prefs.getString(StellaPrefs.OSHI_SLUG, "");
+      String cached = prefs.getString(StellaPrefs.WIDGET_LIVE, "");
       List<String> previous = new ArrayList<>();
       if (cached != null && !cached.isEmpty()) {
-        for (String name : cached.split("\u001f")) {
-          if (!name.isEmpty()) previous.add(name);
+        for (String row : cached.split("\u001f")) {
+          if (!row.isEmpty()) previous.add(row);
         }
       }
 
-      List<String> live = new ArrayList<>();
+      List<LiveRow> live = new ArrayList<>();
       int answered = 0;
-      for (String[] row : CHANNELS) {
-        Boolean status = readLive(row[1]);
-        if (status == null) {
-          // Failed request must not invent offline — keep last known if they were live.
-          if (previous.contains(row[0])) live.add(row[0]);
+      for (String[] channel : CHANNELS) {
+        if (oshiSlug != null && !oshiSlug.isEmpty() && !oshiSlug.equals(channel[0])) continue;
+        LiveAlertReceiver.LiveSnapshot snap = LiveAlertReceiver.readLive(channel[2]);
+        if (snap == null) {
+          for (String prev : previous) {
+            if (prev.startsWith(channel[1] + "|")) {
+              String[] bits = prev.split("\\|", 2);
+              int viewers = 0;
+              try { viewers = bits.length > 1 ? Integer.parseInt(bits[1]) : 0; } catch (Exception ignored) {}
+              live.add(new LiveRow(channel[1], viewers));
+            }
+          }
           continue;
         }
         answered += 1;
-        if (status) live.add(row[0]);
+        if (snap.live) live.add(new LiveRow(channel[1], snap.viewers));
       }
-      if (answered == 0 && live.isEmpty()) live.addAll(previous);
+
+      if (answered == 0 && live.isEmpty()) {
+        for (String prev : previous) {
+          String[] bits = prev.split("\\|", 2);
+          int viewers = 0;
+          try { viewers = bits.length > 1 ? Integer.parseInt(bits[1]) : 0; } catch (Exception ignored) {}
+          live.add(new LiveRow(bits[0], viewers));
+        }
+      }
+
       if (answered > 0) {
         StringBuilder packed = new StringBuilder();
         for (int i = 0; i < live.size(); i += 1) {
           if (i > 0) packed.append('\u001f');
-          packed.append(live.get(i));
+          packed.append(live.get(i).name).append('|').append(live.get(i).viewers);
         }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-          .edit()
-          .putString(LAST_LIVE, packed.toString())
-          .apply();
+        prefs.edit().putString(StellaPrefs.WIDGET_LIVE, packed.toString()).apply();
       }
-      List<String> shown = live;
+
+      final List<LiveRow> shown = live;
+      final boolean oshiOnly = oshiSlug != null && !oshiSlug.isEmpty();
       MAIN.post(() -> {
         RemoteViews views = baseViews(context);
         if (shown.isEmpty()) {
-          views.setTextViewText(R.id.widget_status, "방송 중인 멤버 없음");
-          views.setTextViewText(R.id.widget_detail, "탭해서 Stella Now 열기");
+          views.setTextViewText(R.id.widget_status, oshiOnly ? "오시 방송 없음" : "방송 중인 멤버 없음");
+          views.setTextViewText(R.id.widget_detail, "탭해서 StellaNow 열기");
+        } else if (oshiOnly && shown.size() == 1) {
+          LiveRow row = shown.get(0);
+          views.setTextViewText(R.id.widget_status, row.name + " 방송 중");
+          views.setTextViewText(
+            R.id.widget_detail,
+            row.viewers > 0 ? ("시청 " + String.format("%,d", row.viewers) + "명") : "지금 라이브"
+          );
         } else {
           views.setTextViewText(R.id.widget_status, shown.size() + "명 방송 중");
-          views.setTextViewText(R.id.widget_detail, joinNames(shown));
+          views.setTextViewText(R.id.widget_detail, joinRows(shown));
         }
         manager.updateAppWidget(widgetId, views);
       });
@@ -114,7 +142,6 @@ public class LiveWidgetProvider extends AppWidgetProvider {
     if (intent == null) {
       intent = new Intent(context, MainActivity.class);
     }
-    // MainActivity reads this and routes the WebView to /live/.
     intent.putExtra(MainActivity.PATH_EXTRA, "/live/");
     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
     PendingIntent pending = PendingIntent.getActivity(
@@ -127,44 +154,31 @@ public class LiveWidgetProvider extends AppWidgetProvider {
     return views;
   }
 
-  /** @return true/false when Chzzk answered, null when the request failed */
-  private static Boolean readLive(String channelId) {
-    HttpURLConnection connection = null;
-    try {
-      URL url = new URL("https://api.chzzk.naver.com/polling/v2/channels/" + channelId + "/live-status");
-      connection = (HttpURLConnection) url.openConnection();
-      connection.setConnectTimeout(6000);
-      connection.setReadTimeout(6000);
-      connection.setRequestProperty("Accept", "application/json");
-      connection.setRequestProperty("User-Agent", "StellaNow/1.0");
-      if (connection.getResponseCode() < 200 || connection.getResponseCode() >= 300) return null;
-      BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
-      StringBuilder body = new StringBuilder();
-      String line;
-      while ((line = reader.readLine()) != null) body.append(line);
-      reader.close();
-      JSONObject root = new JSONObject(body.toString());
-      JSONObject content = root.optJSONObject("content");
-      if (content == null) return null;
-      String status = content.optString("status", "");
-      String closeDate = content.optString("closeDate", "");
-      boolean open = "OPEN".equals(status) && (closeDate == null || closeDate.isEmpty() || "null".equals(closeDate));
-      return open;
-    } catch (Exception ignored) {
-      return null;
-    } finally {
-      if (connection != null) connection.disconnect();
-    }
-  }
-
-  private static String joinNames(List<String> names) {
+  private static String joinRows(List<LiveRow> rows) {
     StringBuilder text = new StringBuilder();
-    int limit = Math.min(names.size(), 4);
+    int limit = Math.min(rows.size(), 3);
     for (int i = 0; i < limit; i += 1) {
       if (i > 0) text.append(" · ");
-      text.append(names.get(i));
+      LiveRow row = rows.get(i);
+      text.append(row.name);
+      if (row.viewers > 0) text.append(' ').append(compact(row.viewers));
     }
-    if (names.size() > limit) text.append(" 외 ").append(names.size() - limit).append("명");
+    if (rows.size() > limit) text.append(" 외 ").append(rows.size() - limit).append("명");
     return text.toString();
+  }
+
+  private static String compact(int viewers) {
+    if (viewers >= 10000) return (viewers / 1000) / 10.0 + "만";
+    return String.format("%,d", viewers);
+  }
+
+  private static final class LiveRow {
+    final String name;
+    final int viewers;
+
+    LiveRow(String name, int viewers) {
+      this.name = name;
+      this.viewers = viewers;
+    }
   }
 }

@@ -5,7 +5,22 @@
   --paper: #ffffff;
   --muted: #8b909c;
   --line: #e6e8ee;
+  --soft: #f2f3f7;
+  --soft-strong: #f3f0ff;
   --violet: #7b5cff;
+  --nav: #ffffff;
+}
+
+html.dark {
+  --ink: #f2f3f7;
+  --paper: #12141c;
+  --muted: #9aa0ae;
+  --line: #2a2e3a;
+  --soft: #1c2030;
+  --soft-strong: #241f3a;
+  --violet: #9b84ff;
+  --nav: #161822;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -13,7 +28,10 @@
   --color-paper: var(--paper);
   --color-muted: var(--muted);
   --color-line: var(--line);
+  --color-soft: var(--soft);
+  --color-soft-strong: var(--soft-strong);
   --color-violet: var(--violet);
+  --color-nav: var(--nav);
   --font-sans: var(--font-sans-kr), "Malgun Gothic", sans-serif;
 }
 

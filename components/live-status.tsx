@@ -104,7 +104,7 @@ export function LiveWatch({ slug, href }: { slug: string; href: string }) {
   const info = statuses[slug];
   if (!checked[slug] || !info?.live) return null;
   return (
-    <a href={href} className="mt-5 flex items-center justify-between rounded-2xl bg-white px-4 py-3">
+    <a href={href} className="mt-5 flex items-center justify-between rounded-2xl bg-soft px-4 py-3">
       <span className="text-sm font-medium text-[#ef3b3b]">지금 방송 중</span>
       <span className="text-xs text-muted">시청 {info.viewers.toLocaleString("ko-KR")}명</span>
     </a>

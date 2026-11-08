@@ -1,27 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { ApkDownload } from "@/components/apk-download";
 import { PrefSwitch } from "@/components/pref-switch";
 import { useOshi } from "@/components/oshi";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { scheduleAlertKey } from "@/components/schedule-alert";
 import { members, shortName } from "@/content/members";
+import { readTheme, subscribeTheme, writeTheme, type ThemeMode } from "@/lib/theme";
 
 const shortcuts = [
   { href: "/calendar", label: "일정", detail: "방송과 생일" },
   { href: "/goods", label: "굿즈", detail: "팬딩 상품" },
   { href: "/bookmarks", label: "저장한 글", detail: "북마크" },
-  { href: "/music", label: "음원", detail: "유튜브 · 스포티파이" },
+  { href: "/music", label: "음원", detail: "앱에서 재생" },
 ];
 
 const hideRepliesKey = "stella-now-hide-replies";
+const themes: Array<{ id: ThemeMode; label: string }> = [
+  { id: "system", label: "시스템" },
+  { id: "light", label: "라이트" },
+  { id: "dark", label: "다크" },
+];
 
 export default function SettingsPage() {
   const { slug, alert, choose, clear, setAlerts } = useOshi();
   const oshi = members.find((member) => member.slug === slug);
   const [deviceAlert, setDeviceAlert] = useState<NotificationPermission | "unknown">("unknown");
+  const theme = useSyncExternalStore(subscribeTheme, readTheme, () => "system" as ThemeMode);
 
   useEffect(() => {
     let cancel = false;
@@ -49,13 +56,19 @@ export default function SettingsPage() {
           ) : null}
         </div>
         <p className="mt-1 text-sm leading-6 text-muted">
-          멤버를 고르고 알림을 켜면, 이 화면이 켜져 있는 동안 그 멤버의 방송이 시작될 때 알려줍니다.
+          멤버를 고르고 알림을 켜면, 앱을 닫아 둬도 백그라운드에서 방송 시작을 알려줍니다.
         </p>
         <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-line px-4 py-3.5">
           <span>
             <span className="block font-medium">방송 알림</span>
             <span className="mt-0.5 block text-sm text-muted">
-              {!oshi ? "먼저 멤버를 고르세요." : alert && deviceAlert === "denied" ? "기기 알림이 꺼져 있어 앱 안에서만 알려줍니다." : alert ? "켜짐" : "꺼짐"}
+              {!oshi
+                ? "먼저 멤버를 고르세요."
+                : alert && deviceAlert === "denied"
+                  ? "기기 알림 권한을 허용해 주세요."
+                  : alert
+                    ? "백그라운드에서도 켜짐"
+                    : "꺼짐"}
             </span>
           </span>
           <button
@@ -65,9 +78,9 @@ export default function SettingsPage() {
             aria-label="방송 알림"
             disabled={!oshi}
             onClick={() => void setAlerts(!alert)}
-            className={`relative h-7 w-12 shrink-0 rounded-full ${alert ? "bg-violet" : "bg-[#e6e8ee]"} disabled:opacity-40`}
+            className={`relative h-7 w-12 shrink-0 rounded-full ${alert ? "bg-violet" : "bg-soft"} disabled:opacity-40`}
           >
-            <span className={`absolute top-0.5 size-6 rounded-full bg-white ${alert ? "left-5" : "left-0.5"}`} />
+            <span className={`absolute top-0.5 size-6 rounded-full bg-paper ${alert ? "left-5" : "left-0.5"}`} />
           </button>
         </div>
         <PrefSwitch
@@ -101,7 +114,7 @@ export default function SettingsPage() {
                   onClick={() => (active ? clear() : choose(member.slug))}
                   aria-pressed={active}
                   className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm ${
-                    active ? "border-violet bg-[#f3f0ff] text-violet" : "border-line"
+                    active ? "border-violet bg-soft-strong text-violet" : "border-line"
                   }`}
                 >
                   <ProfileAvatar slug={member.slug} className="size-8" />
@@ -111,6 +124,26 @@ export default function SettingsPage() {
             );
           })}
         </ul>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="text-lg font-bold">화면</h2>
+        <p className="mt-1 text-sm leading-6 text-muted">라이트 / 다크 테마를 고르세요.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {themes.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={theme === item.id}
+              onClick={() => writeTheme(item.id)}
+              className={`h-9 rounded-full px-4 text-sm font-medium ${
+                theme === item.id ? "bg-violet text-white" : "bg-soft text-ink"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className="mt-8">

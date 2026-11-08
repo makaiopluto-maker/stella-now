@@ -1,6 +1,7 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
+import { syncNativeOshi } from "@/lib/native-bridge";
 
 const KEY = "stella-now-oshi";
 const ALERT_KEY = "stella-now-oshi-alert";
@@ -44,18 +45,21 @@ export function useOshi() {
   function choose(next: string) {
     window.localStorage.setItem(KEY, next);
     emit();
+    void syncNativeOshi(next, storedAlert());
   }
 
   function clear() {
     window.localStorage.removeItem(KEY);
     window.localStorage.removeItem(ALERT_KEY);
     emit();
+    void syncNativeOshi(null, false);
   }
 
   async function setAlerts(on: boolean) {
     if (!on) {
       window.localStorage.removeItem(ALERT_KEY);
       emit();
+      void syncNativeOshi(storedSlug(), false);
       return;
     }
     if (!storedSlug()) return;
@@ -68,7 +72,12 @@ export function useOshi() {
     }
     window.localStorage.setItem(ALERT_KEY, "1");
     emit();
+    void syncNativeOshi(storedSlug(), true);
   }
+
+  useEffect(() => {
+    void syncNativeOshi(slug, alert);
+  }, [slug, alert]);
 
   return { slug, alert, choose, clear, setAlerts };
 }

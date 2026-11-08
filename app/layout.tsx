@@ -5,6 +5,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { OshiAlert } from "@/components/oshi-alert";
 import { ScheduleAlert } from "@/components/schedule-alert";
 import { SiteHeader } from "@/components/site-header";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const sans = Noto_Sans_KR({
@@ -21,16 +22,18 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ko" className={`${sans.variable} h-full antialiased`}>
-      <body className="flex h-dvh flex-col overflow-hidden bg-white font-sans text-ink">
-        <SiteHeader />
-        <AppUpdateAlert />
-        <OshiAlert />
-        <ScheduleAlert />
-        <main className="mx-auto w-full max-w-md flex-1 overflow-y-auto px-5 pb-24 pt-5 md:max-w-5xl md:px-8 md:pb-16 md:pt-10">
-          {children}
-        </main>
-        <BottomNav />
+    <html lang="ko" className={`${sans.variable} h-full antialiased`} suppressHydrationWarning>
+      <body className="flex h-dvh flex-col overflow-hidden bg-paper font-sans text-ink">
+        <ThemeProvider>
+          <SiteHeader />
+          <AppUpdateAlert />
+          <OshiAlert />
+          <ScheduleAlert />
+          <main className="mx-auto w-full max-w-md flex-1 overflow-y-auto px-5 pb-24 pt-5 md:max-w-5xl md:px-8 md:pb-16 md:pt-10">
+            {children}
+          </main>
+          <BottomNav />
+        </ThemeProvider>
       </body>
     </html>
   );

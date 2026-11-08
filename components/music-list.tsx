@@ -9,6 +9,7 @@ import {
   type Track,
   type TrackKind,
 } from "@/content/tracks";
+import { spotifyEmbedUrl, youtubeVideoId } from "@/lib/youtube";
 
 const filters: Array<{ id: "all" | TrackKind; label: string }> = [
   { id: "all", label: "전체" },
@@ -18,17 +19,21 @@ const filters: Array<{ id: "all" | TrackKind; label: string }> = [
 
 export function MusicList({ tracks }: { tracks: Track[] }) {
   const [kind, setKind] = useState<"all" | TrackKind>("all");
+  const [playing, setPlaying] = useState<Track | null>(null);
   const rows = useMemo(
     () => (kind === "all" ? tracks : tracks.filter((track) => track.kind === kind)),
     [kind, tracks],
   );
 
+  const youtubeId = playing ? youtubeVideoId(playing.href) : null;
+  const spotify = playing ? spotifyEmbedUrl(playing.href) : null;
+
   return (
-    <div>
+    <div className={playing ? "pb-56" : undefined}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-[32px] font-bold tracking-tight">음원</h1>
-          <p className="mt-1 text-[15px] text-muted">커버는 유튜브, 오리지널은 스포티파이에서 이어집니다</p>
+          <p className="mt-1 text-[15px] text-muted">앱 안에서 바로 들을 수 있어요</p>
         </div>
         <SettingsButton />
       </div>
@@ -41,7 +46,7 @@ export function MusicList({ tracks }: { tracks: Track[] }) {
             aria-pressed={kind === item.id}
             onClick={() => setKind(item.id)}
             className={`h-9 rounded-full px-4 text-sm font-medium ${
-              kind === item.id ? "bg-violet text-white" : "bg-[#f2f3f7] text-ink"
+              kind === item.id ? "bg-violet text-white" : "bg-soft text-ink"
             }`}
           >
             {item.label}
@@ -50,19 +55,28 @@ export function MusicList({ tracks }: { tracks: Track[] }) {
       </div>
 
       {rows.length === 0 ? (
-        <p className="mt-16 text-center text-sm text-[#b0b4be]">아직 모은 음원이 없습니다</p>
+        <p className="mt-16 text-center text-sm text-muted">아직 모은 음원이 없습니다</p>
       ) : (
         <ul className="mt-6 space-y-3">
           {rows.map((track) => {
             const artist = trackArtistName(track.memberSlug);
             const stats = trackStatsLabel(track);
+            const active = playing?.id === track.id;
+            const canPlay = Boolean(youtubeVideoId(track.href) || spotifyEmbedUrl(track.href));
             return (
               <li key={track.id}>
-                <a
-                  href={track.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-3 rounded-2xl bg-[#f2f3f7] px-3 py-3"
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!canPlay) {
+                      window.open(track.href, "_blank", "noopener,noreferrer");
+                      return;
+                    }
+                    setPlaying(active ? null : track);
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left ${
+                    active ? "bg-soft-strong" : "bg-soft"
+                  }`}
                 >
                   {track.thumb ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -81,14 +95,54 @@ export function MusicList({ tracks }: { tracks: Track[] }) {
                     </span>
                     <span className="mt-1 block line-clamp-2 text-[15px] font-medium leading-5">{track.title}</span>
                     <span className="mt-1 block text-sm text-muted">{artist}</span>
-                    {stats ? <span className="mt-1 block text-[12px] text-[#8b90a0]">{stats}</span> : null}
+                    {stats ? <span className="mt-1 block text-[12px] text-muted">{stats}</span> : null}
                   </span>
-                </a>
+                  <span className="shrink-0 text-sm font-medium text-violet">{active ? "닫기" : canPlay ? "재생" : "열기"}</span>
+                </button>
               </li>
             );
           })}
         </ul>
       )}
+
+      {playing ? (
+        <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-50 border-t border-line bg-nav px-4 py-3 md:bottom-0">
+          <div className="mx-auto max-w-md md:max-w-5xl">
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="line-clamp-1 text-sm font-medium">{playing.title}</p>
+                <p className="text-xs text-muted">{trackArtistName(playing.memberSlug)}</p>
+              </div>
+              <button type="button" onClick={() => setPlaying(null)} className="shrink-0 text-sm text-muted">
+                닫기
+              </button>
+            </div>
+            {youtubeId ? (
+              <div className="overflow-hidden rounded-xl bg-black aspect-video">
+                <iframe
+                  title={playing.title}
+                  src={`https://www.youtube-nocookie.com/embed/${youtubeId}?autoplay=1&rel=0`}
+                  className="size-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : spotify ? (
+              <iframe
+                title={playing.title}
+                src={spotify}
+                className="h-[152px] w-full rounded-xl"
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                loading="lazy"
+              />
+            ) : (
+              <a href={playing.href} target="_blank" rel="noreferrer" className="text-sm font-medium text-violet">
+                외부에서 열기
+              </a>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

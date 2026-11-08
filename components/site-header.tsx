@@ -14,10 +14,10 @@ export function SiteHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="z-20 hidden shrink-0 border-b border-line bg-white md:block">
+    <header className="z-20 hidden shrink-0 border-b border-line bg-nav md:block">
       <div className="mx-auto flex h-16 max-w-5xl items-center gap-8 px-8">
         <Link href="/" className="text-[26px] font-bold leading-none tracking-tight whitespace-nowrap">
-          Stella Now
+          StellaNow
         </Link>
         <nav className="flex items-center gap-1">
           {links.map((link) => {
@@ -28,7 +28,7 @@ export function SiteHeader() {
                 href={link.href}
                 aria-current={active ? "page" : undefined}
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                  active ? "bg-[#f3f0ff] text-violet" : "text-[#5c6270]"
+                  active ? "bg-soft-strong text-violet" : "text-muted"
                 }`}
               >
                 {link.label}

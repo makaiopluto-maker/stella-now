@@ -17,7 +17,7 @@ export function BottomNav() {
   const fresh = useSyncExternalStore(subscribeNoticeBadge, hasNewNotices, () => false);
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-nav md:hidden">
       <div className="mx-auto grid max-w-md grid-cols-4 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2">
         {tabs.map((tab) => {
           const active =
@@ -31,7 +31,7 @@ export function BottomNav() {
               key={tab.href}
               href={tab.href}
               className={`relative flex flex-col items-center gap-1 py-1 text-[11px] ${
-                active ? "text-violet" : "text-[#b0b4be]"
+                active ? "text-violet" : "text-muted"
               }`}
               aria-current={active ? "page" : undefined}
             >

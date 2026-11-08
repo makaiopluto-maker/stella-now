@@ -1,6 +1,7 @@
 package now.stella.app;
 
 import android.content.Intent;
+import android.os.Bundle;
 import android.webkit.WebView;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
@@ -9,9 +10,19 @@ public class MainActivity extends BridgeActivity {
   static final String PATH_EXTRA = "stella_path";
 
   @Override
-  public void onCreate(android.os.Bundle savedInstanceState) {
+  public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+    attachBridge();
     openPath(getIntent());
+    if (StellaPrefs.prefs(this).getBoolean(StellaPrefs.OSHI_ALERT, false)) {
+      LiveAlertScheduler.schedule(this);
+    }
+  }
+
+  @Override
+  public void onStart() {
+    super.onStart();
+    attachBridge();
   }
 
   @Override
@@ -19,6 +30,12 @@ public class MainActivity extends BridgeActivity {
     super.onNewIntent(intent);
     if (intent != null) setIntent(intent);
     openPath(intent);
+  }
+
+  private void attachBridge() {
+    Bridge bridge = getBridge();
+    if (bridge == null || bridge.getWebView() == null) return;
+    bridge.getWebView().addJavascriptInterface(new StellaNativeBridge(this), "StellaNative");
   }
 
   private void openPath(Intent intent) {
@@ -33,7 +50,6 @@ public class MainActivity extends BridgeActivity {
     if (webView == null) return;
 
     final String target = path.startsWith("/") ? path : "/" + path;
-    // Wait until the WebView has finished Capacitor's first load before routing.
     webView.postDelayed(
       () -> {
         Bridge ready = getBridge();
