@@ -20,6 +20,11 @@ public class MusicKeepAliveService extends Service {
   static final String EXTRA_ARTIST = "artist";
   private static final String CHANNEL_ID = "stella_music_playback";
   private static final int NOTIFY_ID = 9101;
+  private static volatile boolean running = false;
+
+  static boolean isRunning() {
+    return running;
+  }
 
   static void start(Context context, String title, String artist) {
     Intent intent = new Intent(context, MusicKeepAliveService.class);
@@ -39,6 +44,7 @@ public class MusicKeepAliveService extends Service {
   @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
     if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+      running = false;
       stopForeground(STOP_FOREGROUND_REMOVE);
       stopSelf();
       return START_NOT_STICKY;
@@ -49,12 +55,19 @@ public class MusicKeepAliveService extends Service {
     if (title == null || title.isEmpty()) title = "StellaNow";
     ensureChannel();
     Notification notification = buildNotification(title, artist);
+    running = true;
     if (Build.VERSION.SDK_INT >= 29) {
       startForeground(NOTIFY_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
     } else {
       startForeground(NOTIFY_ID, notification);
     }
     return START_STICKY;
+  }
+
+  @Override
+  public void onDestroy() {
+    running = false;
+    super.onDestroy();
   }
 
   private Notification buildNotification(String title, String artist) {

@@ -26,10 +26,41 @@ public class MainActivity extends BridgeActivity {
   }
 
   @Override
+  public void onPause() {
+    super.onPause();
+    // Capacitor pauses WebView timers here, which stops YouTube audio.
+    // Keep timers alive while the music foreground service is running.
+    keepWebViewAudioAlive();
+  }
+
+  @Override
+  public void onStop() {
+    super.onStop();
+    keepWebViewAudioAlive();
+  }
+
+  @Override
   protected void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
     if (intent != null) setIntent(intent);
     openPath(intent);
+  }
+
+  private void keepWebViewAudioAlive() {
+    if (!MusicKeepAliveService.isRunning()) return;
+    Bridge bridge = getBridge();
+    if (bridge == null || bridge.getWebView() == null) return;
+    WebView webView = bridge.getWebView();
+    webView.post(
+      () -> {
+        try {
+          webView.onResume();
+          webView.resumeTimers();
+        } catch (Exception ignored) {
+          // Best-effort keep-alive.
+        }
+      }
+    );
   }
 
   private void attachBridge() {

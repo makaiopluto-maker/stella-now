@@ -25,12 +25,61 @@ type MusicPlayerValue = {
   toggleExpanded: () => void;
   togglePlay: () => void;
   playQuick: () => void;
+  playNext: () => void;
+  playPrev: () => void;
+};
+
+type Snapshot = {
+  trackId: string | null;
+  playing: boolean;
+  expanded: boolean;
 };
 
 const MusicPlayerContext = createContext<MusicPlayerValue | null>(null);
+const STORAGE_KEY = "stellanow-music-player-v1";
 
-function canEmbed(track: Track) {
-  return Boolean(youtubeVideoId(track.href) || spotifyEmbedUrl(track.href));
+/** Survives layout remounts during static-export tab navigations. */
+let memory: Snapshot = { trackId: null, playing: false, expanded: false };
+
+function canPlayTrack(track: Track) {
+  return Boolean(youtubeVideoId(track.href));
+}
+
+function playableTracks() {
+  return tracks.filter(canPlayTrack);
+}
+
+function readSnapshot(): Snapshot {
+  if (typeof window === "undefined") return memory;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Snapshot;
+      memory = {
+        trackId: typeof parsed.trackId === "string" ? parsed.trackId : null,
+        playing: Boolean(parsed.playing),
+        expanded: Boolean(parsed.expanded),
+      };
+    }
+  } catch {
+    // Ignore bad storage.
+  }
+  return memory;
+}
+
+function writeSnapshot(next: Snapshot) {
+  memory = next;
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // Private mode / quota.
+  }
+}
+
+function trackById(id: string | null) {
+  if (!id) return null;
+  return tracks.find((item) => item.id === id) ?? null;
 }
 
 async function syncNativeMusic(playing: boolean, title: string, artist: string) {
@@ -49,13 +98,32 @@ async function syncNativeMusic(playing: boolean, title: string, artist: string) 
 }
 
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
-  const [track, setTrack] = useState<Track | null>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [playing, setPlaying] = useState(false);
+  const initial = readSnapshot();
+  const [track, setTrack] = useState<Track | null>(() => trackById(initial.trackId));
+  const [expanded, setExpanded] = useState(() => Boolean(initial.trackId) && initial.expanded);
+  const [playing, setPlaying] = useState(() => Boolean(initial.trackId) && initial.playing);
   const { slug } = useOshi();
   const playerRef = useRef<YtPlayer | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const trackRef = useRef<Track | null>(null);
+  const trackRef = useRef<Track | null>(track);
+  const playingRef = useRef(playing);
+  const skipAutoRef = useRef<(delta: number) => void>(() => {});
+
+  useEffect(() => {
+    trackRef.current = track;
+  }, [track]);
+
+  useEffect(() => {
+    playingRef.current = playing;
+  }, [playing]);
+
+  useEffect(() => {
+    writeSnapshot({
+      trackId: track?.id ?? null,
+      playing: Boolean(track) && playing,
+      expanded: Boolean(track) && expanded,
+    });
+  }, [track, playing, expanded]);
 
   const destroyPlayer = useCallback(() => {
     try {
@@ -73,6 +141,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setTrack(null);
     setPlaying(false);
     setExpanded(false);
+    writeSnapshot({ trackId: null, playing: false, expanded: false });
     void syncNativeMusic(false, "", "");
   }, [destroyPlayer]);
 
@@ -82,6 +151,27 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setExpanded(true);
     setPlaying(true);
   }, []);
+
+  const skipBy = useCallback(
+    (delta: number) => {
+      const pool = playableTracks();
+      if (pool.length === 0) return;
+      const currentId = trackRef.current?.id;
+      const index = currentId ? pool.findIndex((item) => item.id === currentId) : -1;
+      const nextIndex = index < 0 ? 0 : (index + delta + pool.length) % pool.length;
+      const next = pool[nextIndex];
+      if (!next) return;
+      trackRef.current = next;
+      setTrack(next);
+      setPlaying(true);
+    },
+    [],
+  );
+
+  skipAutoRef.current = skipBy;
+
+  const playNext = useCallback(() => skipBy(1), [skipBy]);
+  const playPrev = useCallback(() => skipBy(-1), [skipBy]);
 
   const toggleExpanded = useCallback(() => {
     setExpanded((value) => !value);
@@ -99,9 +189,15 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       if (state === 1 || state === 3) {
         player.pauseVideo();
         setPlaying(false);
+        const current = trackRef.current;
+        void syncNativeMusic(false, current?.title ?? "", trackArtistName(current?.memberSlug ?? ""));
       } else {
         player.playVideo();
         setPlaying(true);
+        const current = trackRef.current;
+        if (current) {
+          void syncNativeMusic(true, current.title, trackArtistName(current.memberSlug));
+        }
       }
     } catch {
       setPlaying((value) => !value);
@@ -109,11 +205,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const playQuick = useCallback(() => {
-    const pool = tracks.filter(canEmbed);
+    const pool = playableTracks();
     const preferred =
-      (slug ? pool.find((item) => item.memberSlug === slug && youtubeVideoId(item.href)) : null) ||
-      pool.find((item) => youtubeVideoId(item.href)) ||
-      pool[0];
+      (slug ? pool.find((item) => item.memberSlug === slug) : null) || pool[0];
     if (!preferred) return;
     trackRef.current = preferred;
     setTrack(preferred);
@@ -121,7 +215,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setPlaying(true);
   }, [slug]);
 
-  // Create / swap the hidden YouTube engine whenever the track changes.
+  // Create / swap the YouTube engine whenever the track changes.
   useEffect(() => {
     if (!track) {
       destroyPlayer();
@@ -131,13 +225,15 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const videoId = youtubeVideoId(track.href);
     const title = track.title;
     const artist = trackArtistName(track.memberSlug);
-    void syncNativeMusic(true, title, artist);
 
     if (!videoId) {
-      // Spotify (and other) tracks use the visible custom shell + optional embed fallback.
       destroyPlayer();
-      setPlaying(true);
+      setPlaying(false);
       return;
+    }
+
+    if (playingRef.current) {
+      void syncNativeMusic(true, title, artist);
     }
 
     let cancelled = false;
@@ -149,10 +245,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       hostRef.current.appendChild(mount);
       playerRef.current = new window.YT.Player(mount, {
         videoId,
-        width: 320,
-        height: 180,
+        width: 160,
+        height: 90,
         playerVars: {
-          autoplay: 1,
+          autoplay: playingRef.current ? 1 : 0,
           controls: 0,
           rel: 0,
           playsinline: 1,
@@ -164,20 +260,23 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         events: {
           onReady: (event) => {
             if (cancelled) return;
-            event.target.playVideo();
-            setPlaying(true);
+            if (playingRef.current) {
+              event.target.playVideo();
+              setPlaying(true);
+              void syncNativeMusic(true, title, artist);
+            }
           },
           onStateChange: (event) => {
             if (cancelled) return;
             // 0 ended, 1 playing, 2 paused
             if (event.data === 0) {
-              setPlaying(false);
-              void syncNativeMusic(false, "", "");
+              skipAutoRef.current(1);
             } else if (event.data === 1) {
               setPlaying(true);
               void syncNativeMusic(true, title, artist);
             } else if (event.data === 2) {
               setPlaying(false);
+              void syncNativeMusic(false, title, artist);
             }
           },
         },
@@ -194,12 +293,16 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         navigator.mediaSession.setActionHandler("play", () => {
           playerRef.current?.playVideo();
           setPlaying(true);
+          void syncNativeMusic(true, title, artist);
         });
         navigator.mediaSession.setActionHandler("pause", () => {
           playerRef.current?.pauseVideo();
           setPlaying(false);
+          void syncNativeMusic(false, title, artist);
         });
         navigator.mediaSession.setActionHandler("stop", () => stop());
+        navigator.mediaSession.setActionHandler("nexttrack", () => skipAutoRef.current(1));
+        navigator.mediaSession.setActionHandler("previoustrack", () => skipAutoRef.current(-1));
       } catch {
         // Media Session is best-effort.
       }
@@ -210,29 +313,51 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     };
   }, [track, destroyPlayer, stop]);
 
+  // Pause / resume without remounting when only `playing` flips before engine exists.
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || !track) return;
+    try {
+      if (playing) player.playVideo();
+      else player.pauseVideo();
+    } catch {
+      // Player may be mid-load.
+    }
+  }, [playing, track]);
+
   useEffect(() => {
     return () => {
-      destroyPlayer();
-      void syncNativeMusic(false, "", "");
+      // Keep native service in sync only when the whole app unloads; don't stop on remount.
     };
-  }, [destroyPlayer]);
+  }, []);
 
   const value = useMemo(
-    () => ({ track, expanded, playing, play, stop, toggleExpanded, togglePlay, playQuick }),
-    [track, expanded, playing, play, stop, toggleExpanded, togglePlay, playQuick],
+    () => ({
+      track,
+      expanded,
+      playing,
+      play,
+      stop,
+      toggleExpanded,
+      togglePlay,
+      playQuick,
+      playNext,
+      playPrev,
+    }),
+    [track, expanded, playing, play, stop, toggleExpanded, togglePlay, playQuick, playNext, playPrev],
   );
 
   return (
     <MusicPlayerContext.Provider value={value}>
       {children}
-      {/* Hidden YouTube engine — audio only, custom UI on top. */}
+      {/* Keep a tiny in-viewport engine so WebView/YouTube don't treat it as hidden. */}
       <div
         ref={hostRef}
         aria-hidden
-        className="pointer-events-none fixed -left-[9999px] top-0 h-[180px] w-[320px] overflow-hidden opacity-0"
+        className="pointer-events-none fixed bottom-0 left-0 z-0 h-[90px] w-[160px] overflow-hidden opacity-[0.02]"
       />
       <CustomPlayerShell />
-      <HomeMusicLauncher />
+      <MusicLauncher />
     </MusicPlayerContext.Provider>
   );
 }
@@ -244,11 +369,11 @@ export function useMusicPlayer() {
 }
 
 function CustomPlayerShell() {
-  const { track, expanded, playing, stop, toggleExpanded, togglePlay } = useMusicPlayer();
+  const { track, expanded, playing, stop, toggleExpanded, togglePlay, playNext, playPrev } =
+    useMusicPlayer();
   if (!track) return null;
 
   const artist = trackArtistName(track.memberSlug);
-  const spotify = !youtubeVideoId(track.href) ? spotifyEmbedUrl(track.href) : null;
 
   if (!expanded) {
     return (
@@ -286,11 +411,11 @@ function CustomPlayerShell() {
 
   return (
     <div
-      className="fixed inset-x-0 z-50 border-t border-line bg-nav px-4 py-4 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
+      className="fixed inset-x-0 z-50 border-t border-line bg-nav px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
       style={{ bottom: "calc(3.5rem + env(safe-area-inset-bottom))" }}
     >
       <div className="mx-auto flex max-w-md items-center gap-3 md:max-w-5xl">
-        <div className="relative size-16 shrink-0 overflow-hidden rounded-2xl bg-soft">
+        <div className="relative size-14 shrink-0 overflow-hidden rounded-2xl bg-soft">
           {track.thumb ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={track.thumb} alt="" className="size-full object-cover" referrerPolicy="no-referrer" />
@@ -303,20 +428,38 @@ function CustomPlayerShell() {
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-semibold">{track.title}</p>
           <p className="mt-0.5 truncate text-sm text-muted">{artist}</p>
-          {spotify ? (
+          {!youtubeVideoId(track.href) && spotifyEmbedUrl(track.href) ? (
             <a href={track.href} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-medium text-violet">
               스포티파이에서 이어듣기
             </a>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={togglePlay}
-          aria-label={playing ? "일시정지" : "재생"}
-          className="grid size-11 shrink-0 place-items-center rounded-full bg-violet text-white"
-        >
-          {playing ? <PauseIcon /> : <PlayIcon />}
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={playPrev}
+            aria-label="이전 곡"
+            className="grid size-10 place-items-center rounded-full text-ink"
+          >
+            <PrevIcon />
+          </button>
+          <button
+            type="button"
+            onClick={togglePlay}
+            aria-label={playing ? "일시정지" : "재생"}
+            className="grid size-11 place-items-center rounded-full bg-violet text-white"
+          >
+            {playing ? <PauseIcon /> : <PlayIcon />}
+          </button>
+          <button
+            type="button"
+            onClick={playNext}
+            aria-label="다음 곡"
+            className="grid size-10 place-items-center rounded-full text-ink"
+          >
+            <NextIcon />
+          </button>
+        </div>
         <button type="button" onClick={toggleExpanded} className="shrink-0 text-sm text-muted">
           접기
         </button>
@@ -328,10 +471,20 @@ function CustomPlayerShell() {
   );
 }
 
-function HomeMusicLauncher() {
+function MusicLauncher() {
   const pathname = usePathname();
   const { track, playQuick } = useMusicPlayer();
-  if (pathname !== "/" || track) return null;
+  if (track) return null;
+
+  // Available on every main tab, not only home.
+  const allowed =
+    pathname === "/" ||
+    pathname.startsWith("/members") ||
+    pathname.startsWith("/posts") ||
+    pathname.startsWith("/calendar") ||
+    pathname.startsWith("/music") ||
+    pathname.startsWith("/settings");
+  if (!allowed) return null;
 
   return (
     <button
@@ -363,6 +516,22 @@ function PauseIcon() {
   return (
     <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden>
       <path d="M7 6h3.5v12H7zm6.5 0H17v12h-3.5z" />
+    </svg>
+  );
+}
+
+function PrevIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-5" fill="currentColor" aria-hidden>
+      <path d="M6 6h2v12H6zm3.5 6 8.5 5.5V6.5z" />
+    </svg>
+  );
+}
+
+function NextIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-5" fill="currentColor" aria-hidden>
+      <path d="M16 6h2v12h-2zM6 6.5v11L14.5 12z" />
     </svg>
   );
 }
