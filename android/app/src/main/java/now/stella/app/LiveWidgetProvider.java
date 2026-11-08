@@ -24,6 +24,8 @@ import java.util.concurrent.Executors;
 public class LiveWidgetProvider extends AppWidgetProvider {
   private static final ExecutorService WORK = Executors.newSingleThreadExecutor();
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
+  private static final String PREFS = "stella_live_widget";
+  private static final String LAST_LIVE = "last_live_names";
 
   private static final String[][] CHANNELS = {
     {"유니", "45e71a76e949e16a34764deb962f9d9f"},
@@ -59,18 +61,47 @@ public class LiveWidgetProvider extends AppWidgetProvider {
 
   private void refresh(Context context, AppWidgetManager manager, int widgetId) {
     WORK.execute(() -> {
-      List<String> live = new ArrayList<>();
-      for (String[] row : CHANNELS) {
-        if (isLive(row[1])) live.add(row[0]);
+      String cached = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(LAST_LIVE, "");
+      List<String> previous = new ArrayList<>();
+      if (cached != null && !cached.isEmpty()) {
+        for (String name : cached.split("\u001f")) {
+          if (!name.isEmpty()) previous.add(name);
+        }
       }
+
+      List<String> live = new ArrayList<>();
+      int answered = 0;
+      for (String[] row : CHANNELS) {
+        Boolean status = readLive(row[1]);
+        if (status == null) {
+          // Failed request must not invent offline — keep last known if they were live.
+          if (previous.contains(row[0])) live.add(row[0]);
+          continue;
+        }
+        answered += 1;
+        if (status) live.add(row[0]);
+      }
+      if (answered == 0 && live.isEmpty()) live.addAll(previous);
+      if (answered > 0) {
+        StringBuilder packed = new StringBuilder();
+        for (int i = 0; i < live.size(); i += 1) {
+          if (i > 0) packed.append('\u001f');
+          packed.append(live.get(i));
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+          .edit()
+          .putString(LAST_LIVE, packed.toString())
+          .apply();
+      }
+      List<String> shown = live;
       MAIN.post(() -> {
         RemoteViews views = baseViews(context);
-        if (live.isEmpty()) {
+        if (shown.isEmpty()) {
           views.setTextViewText(R.id.widget_status, "방송 중인 멤버 없음");
           views.setTextViewText(R.id.widget_detail, "탭해서 Stella Now 열기");
         } else {
-          views.setTextViewText(R.id.widget_status, live.size() + "명 방송 중");
-          views.setTextViewText(R.id.widget_detail, joinNames(live));
+          views.setTextViewText(R.id.widget_status, shown.size() + "명 방송 중");
+          views.setTextViewText(R.id.widget_detail, joinNames(shown));
         }
         manager.updateAppWidget(widgetId, views);
       });
@@ -95,7 +126,8 @@ public class LiveWidgetProvider extends AppWidgetProvider {
     return views;
   }
 
-  private static boolean isLive(String channelId) {
+  /** @return true/false when Chzzk answered, null when the request failed */
+  private static Boolean readLive(String channelId) {
     HttpURLConnection connection = null;
     try {
       URL url = new URL("https://api.chzzk.naver.com/polling/v2/channels/" + channelId + "/live-status");
@@ -104,7 +136,7 @@ public class LiveWidgetProvider extends AppWidgetProvider {
       connection.setReadTimeout(6000);
       connection.setRequestProperty("Accept", "application/json");
       connection.setRequestProperty("User-Agent", "StellaNow/1.0");
-      if (connection.getResponseCode() < 200 || connection.getResponseCode() >= 300) return false;
+      if (connection.getResponseCode() < 200 || connection.getResponseCode() >= 300) return null;
       BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8));
       StringBuilder body = new StringBuilder();
       String line;
@@ -112,12 +144,13 @@ public class LiveWidgetProvider extends AppWidgetProvider {
       reader.close();
       JSONObject root = new JSONObject(body.toString());
       JSONObject content = root.optJSONObject("content");
-      if (content == null) return false;
+      if (content == null) return null;
       String status = content.optString("status", "");
       String closeDate = content.optString("closeDate", "");
-      return "OPEN".equals(status) && (closeDate == null || closeDate.isEmpty() || "null".equals(closeDate));
+      boolean open = "OPEN".equals(status) && (closeDate == null || closeDate.isEmpty() || "null".equals(closeDate));
+      return open;
     } catch (Exception ignored) {
-      return false;
+      return null;
     } finally {
       if (connection != null) connection.disconnect();
     }

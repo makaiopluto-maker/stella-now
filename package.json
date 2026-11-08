@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/fetch-chzzk-profiles.mjs && node scripts/fetch-live.mjs && node scripts/fetch-posts.mjs && node scripts/fetch-goods.mjs && node scripts/fetch-tracks.mjs && node scripts/fetch-spotify.mjs && node scripts/copy-live-public.mjs && next build",
-    "start": "next start",
+    "start": "npx --yes serve out -p 3000",
     "lint": "eslint"
   },
   "dependencies": {

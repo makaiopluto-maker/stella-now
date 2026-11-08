@@ -3,7 +3,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 const outPath = new URL("../content/tracks.json", import.meta.url);
 const membersSource = readFileSync(new URL("../content/members.ts", import.meta.url), "utf8");
 const postsPath = new URL("../content/posts.json", import.meta.url);
-const ytKey = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+// YouTube WEB innertube client key (public client id, not a private Data API secret).
+const ytKey = process.env.YT_INNERTUBE_KEY || "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
 
 const previous = existsSync(outPath) ? JSON.parse(readFileSync(outPath, "utf8")) : [];
 const kept = new Map(previous.map((track) => [track.id, track]));

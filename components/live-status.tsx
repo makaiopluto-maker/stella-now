@@ -14,7 +14,9 @@ type LiveStore = {
 };
 
 const initialStatuses = Object.fromEntries(members.map((member) => [member.slug, liveInfo(member.slug)]));
-let store: LiveStore = { statuses: initialStatuses, checked: {}, refreshing: false, failed: false };
+// Snapshot from the last build/export is already trusted — show LIVE badges immediately.
+const initialChecked = Object.fromEntries(members.map((member) => [member.slug, true]));
+let store: LiveStore = { statuses: initialStatuses, checked: initialChecked, refreshing: false, failed: false };
 const listeners = new Set<() => void>();
 let users = 0;
 let poll = 0;

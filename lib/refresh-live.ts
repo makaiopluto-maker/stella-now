@@ -129,6 +129,29 @@ async function fetchPublishedAndNotify(onUpdate?: (slug: string, info: LiveInfo)
   return published;
 }
 
+async function mergeWithPublished(
+  people: { slug: string; chzzk: string }[],
+  fresh: readonly (readonly [string, LiveInfo])[],
+  onUpdate?: (slug: string, info: LiveInfo) => void,
+) {
+  // A failed request must not mark anyone offline. Only a real Chzzk answer replaces the snapshot.
+  if (fresh.length === 0) return fetchPublishedAndNotify(onUpdate);
+  if (fresh.length >= people.length) return Object.fromEntries(fresh);
+
+  try {
+    const published = await fetchPublishedLive();
+    const answered = new Set(fresh.map(([slug]) => slug));
+    const merged: Record<string, LiveInfo> = { ...published };
+    for (const [slug, info] of fresh) merged[slug] = info;
+    for (const member of people) {
+      if (!answered.has(member.slug) && merged[member.slug]) onUpdate?.(member.slug, merged[member.slug]);
+    }
+    return merged;
+  } catch {
+    return Object.fromEntries(fresh);
+  }
+}
+
 export async function refreshMemberLives(
   people: { slug: string; chzzk: string }[],
   onUpdate?: (slug: string, info: LiveInfo) => void,
@@ -140,9 +163,7 @@ export async function refreshMemberLives(
       (channelId) => readChzzkDirect(`https://api.chzzk.naver.com/polling/v2/channels/${channelId}/live-status`),
       onUpdate,
     );
-    // A failed request must not mark anyone offline. Only a real Chzzk answer replaces the snapshot.
-    if (fresh.length === 0) return fetchPublishedAndNotify(onUpdate);
-    return Object.fromEntries(fresh);
+    return mergeWithPublished(people, fresh, onUpdate);
   }
 
   // Static GitHub Pages has no /chzzk-live rewrite — use the cron-published live.json.
@@ -152,6 +173,5 @@ export async function refreshMemberLives(
   }
 
   const fresh = await readMembers(people, readChzzkPage, onUpdate);
-  if (fresh.length === 0) return fetchPublishedAndNotify(onUpdate);
-  return Object.fromEntries(fresh);
+  return mergeWithPublished(people, fresh, onUpdate);
 }

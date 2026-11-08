@@ -24,6 +24,12 @@ type YahooEntry = {
 };
 
 export async function fetchTaggedPosts(tag: string, slug?: string, cursor?: string) {
+  const { Capacitor } = await import("@capacitor/core");
+  // Yahoo realtime has no browser CORS. Web uses cron-baked posts.json only.
+  if (!Capacitor.isNativePlatform()) {
+    return { posts: [] as Post[], cursor: undefined as string | undefined };
+  }
+
   const start = Number(cursor) || 1;
   try {
     const data = await readYahoo(tag, start);
@@ -44,8 +50,7 @@ async function readYahoo(tag: string, start: number) {
   url.searchParams.set("p", tag);
   url.searchParams.set("results", "40");
   url.searchParams.set("start", String(start));
-  const { Capacitor, CapacitorHttp } = await import("@capacitor/core");
-  if (!Capacitor.isNativePlatform()) return null;
+  const { CapacitorHttp } = await import("@capacitor/core");
   const response = await CapacitorHttp.get({
     url: url.toString(),
     headers: {
