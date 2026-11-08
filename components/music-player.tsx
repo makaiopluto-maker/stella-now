@@ -13,6 +13,12 @@ import {
 import { usePathname } from "next/navigation";
 import { useOshi } from "@/components/oshi";
 import { trackArtistName, tracks, type Track } from "@/content/tracks";
+import {
+  installMusicBackgroundShield,
+  setMusicResumeHandler,
+  startMusicWatchdog,
+  stopMusicWatchdog,
+} from "@/lib/music-background";
 import { loadYouTubeApi, type YtPlayer } from "@/lib/youtube-api";
 import { spotifyEmbedUrl, youtubeVideoId } from "@/lib/youtube";
 
@@ -108,6 +114,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const trackRef = useRef<Track | null>(track);
   const playingRef = useRef(playing);
   const skipAutoRef = useRef<(delta: number) => void>(() => {});
+  const userPausedRef = useRef(false);
 
   useEffect(() => {
     trackRef.current = track;
@@ -115,7 +122,36 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     playingRef.current = playing;
+    if (playing) {
+      userPausedRef.current = false;
+      installMusicBackgroundShield();
+      startMusicWatchdog();
+    } else {
+      stopMusicWatchdog();
+    }
   }, [playing]);
+
+  useEffect(() => {
+    setMusicResumeHandler(() => {
+      if (!playingRef.current || userPausedRef.current) return;
+      const player = playerRef.current;
+      if (!player) return;
+      try {
+        const state = player.getPlayerState();
+        // -1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering, 5 cued
+        if (state !== 1 && state !== 3) {
+          player.playVideo();
+        }
+        const current = trackRef.current;
+        if (current) {
+          void syncNativeMusic(true, current.title, trackArtistName(current.memberSlug));
+        }
+      } catch {
+        // Player mid-load.
+      }
+    });
+    return () => setMusicResumeHandler(null);
+  }, []);
 
   useEffect(() => {
     writeSnapshot({
@@ -136,6 +172,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const stop = useCallback(() => {
+    userPausedRef.current = true;
+    stopMusicWatchdog();
     destroyPlayer();
     trackRef.current = null;
     setTrack(null);
@@ -146,6 +184,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, [destroyPlayer]);
 
   const play = useCallback((next: Track) => {
+    userPausedRef.current = false;
     trackRef.current = next;
     setTrack(next);
     setExpanded(true);
@@ -161,6 +200,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       const nextIndex = index < 0 ? 0 : (index + delta + pool.length) % pool.length;
       const next = pool[nextIndex];
       if (!next) return;
+      userPausedRef.current = false;
       trackRef.current = next;
       setTrack(next);
       setPlaying(true);
@@ -180,18 +220,23 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const togglePlay = useCallback(() => {
     const player = playerRef.current;
     if (!player) {
-      setPlaying((value) => !value);
+      setPlaying((value) => {
+        userPausedRef.current = value;
+        return !value;
+      });
       return;
     }
     try {
       const state = player.getPlayerState();
       // 1 = playing, 3 = buffering
-      if (state === 1 || state === 3) {
+      if (state === 1 || state === 3 || playingRef.current) {
+        userPausedRef.current = true;
         player.pauseVideo();
         setPlaying(false);
         const current = trackRef.current;
         void syncNativeMusic(false, current?.title ?? "", trackArtistName(current?.memberSlug ?? ""));
       } else {
+        userPausedRef.current = false;
         player.playVideo();
         setPlaying(true);
         const current = trackRef.current;
@@ -200,7 +245,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch {
-      setPlaying((value) => !value);
+      setPlaying((value) => {
+        userPausedRef.current = value;
+        return !value;
+      });
     }
   }, []);
 
@@ -209,6 +257,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const preferred =
       (slug ? pool.find((item) => item.memberSlug === slug) : null) || pool[0];
     if (!preferred) return;
+    userPausedRef.current = false;
     trackRef.current = preferred;
     setTrack(preferred);
     setExpanded(false);
@@ -270,13 +319,29 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
             if (cancelled) return;
             // 0 ended, 1 playing, 2 paused
             if (event.data === 0) {
+              if (userPausedRef.current) {
+                setPlaying(false);
+                void syncNativeMusic(false, "", "");
+                return;
+              }
               skipAutoRef.current(1);
             } else if (event.data === 1) {
               setPlaying(true);
               void syncNativeMusic(true, title, artist);
             } else if (event.data === 2) {
-              setPlaying(false);
-              void syncNativeMusic(false, title, artist);
+              // YouTube often auto-pauses when the app is backgrounded.
+              // If the user still wants audio, resume instead of tearing down keep-alive.
+              if (!userPausedRef.current && playingRef.current) {
+                try {
+                  event.target.playVideo();
+                } catch {
+                  // ignore
+                }
+                void syncNativeMusic(true, title, artist);
+              } else {
+                setPlaying(false);
+                void syncNativeMusic(false, title, artist);
+              }
             }
           },
         },
@@ -291,11 +356,13 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
           artwork: track.thumb ? [{ src: track.thumb, sizes: "512x512", type: "image/jpeg" }] : [],
         });
         navigator.mediaSession.setActionHandler("play", () => {
+          userPausedRef.current = false;
           playerRef.current?.playVideo();
           setPlaying(true);
           void syncNativeMusic(true, title, artist);
         });
         navigator.mediaSession.setActionHandler("pause", () => {
+          userPausedRef.current = true;
           playerRef.current?.pauseVideo();
           setPlaying(false);
           void syncNativeMusic(false, title, artist);

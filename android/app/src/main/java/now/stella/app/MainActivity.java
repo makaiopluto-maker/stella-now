@@ -2,12 +2,16 @@ package now.stella.app;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.webkit.WebView;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
   static final String PATH_EXTRA = "stella_path";
+  private final Handler mainHandler = new Handler(Looper.getMainLooper());
+  private final Runnable keepAliveTick = this::keepWebViewAudioAlive;
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
@@ -28,15 +32,20 @@ public class MainActivity extends BridgeActivity {
   @Override
   public void onPause() {
     super.onPause();
-    // Capacitor pauses WebView timers here, which stops YouTube audio.
-    // Keep timers alive while the music foreground service is running.
-    keepWebViewAudioAlive();
+    // Capacitor / WebView may throttle media when backgrounded. Keep timers + JS playing.
+    scheduleKeepAlive();
   }
 
   @Override
   public void onStop() {
     super.onStop();
-    keepWebViewAudioAlive();
+    scheduleKeepAlive();
+  }
+
+  @Override
+  public void onResume() {
+    super.onResume();
+    mainHandler.removeCallbacks(keepAliveTick);
   }
 
   @Override
@@ -46,21 +55,30 @@ public class MainActivity extends BridgeActivity {
     openPath(intent);
   }
 
+  private void scheduleKeepAlive() {
+    if (!MusicKeepAliveService.isRunning()) return;
+    keepWebViewAudioAlive();
+    mainHandler.removeCallbacks(keepAliveTick);
+    mainHandler.postDelayed(keepAliveTick, 250);
+    mainHandler.postDelayed(keepAliveTick, 1000);
+    mainHandler.postDelayed(keepAliveTick, 2500);
+  }
+
   private void keepWebViewAudioAlive() {
     if (!MusicKeepAliveService.isRunning()) return;
     Bridge bridge = getBridge();
     if (bridge == null || bridge.getWebView() == null) return;
     WebView webView = bridge.getWebView();
-    webView.post(
-      () -> {
-        try {
-          webView.onResume();
-          webView.resumeTimers();
-        } catch (Exception ignored) {
-          // Best-effort keep-alive.
-        }
-      }
-    );
+    try {
+      webView.onResume();
+      webView.resumeTimers();
+      webView.evaluateJavascript(
+        "(function(){try{window.__stellaResumeMusic&&window.__stellaResumeMusic()}catch(e){}})();",
+        null
+      );
+    } catch (Exception ignored) {
+      // Best-effort keep-alive.
+    }
   }
 
   private void attachBridge() {
