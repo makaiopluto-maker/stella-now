@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #000;
+        overflow: hidden;
+      }
+      #player {
+        width: 320px;
+        height: 180px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="player"></div>
+    <script>
+      var player = null;
+      var pendingId = null;
+      var wantPlay = false;
+      var ready = false;
+
+      function emit(type) {
+        try {
+          if (window.StellaMusic && window.StellaMusic.onEvent) {
+            window.StellaMusic.onEvent(type);
+          }
+        } catch (e) {}
+      }
+
+      function ensureApi(cb) {
+        if (window.YT && window.YT.Player) {
+          cb();
+          return;
+        }
+        var tag = document.createElement("script");
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.head.appendChild(tag);
+        var prev = window.onYouTubeIframeAPIReady;
+        window.onYouTubeIframeAPIReady = function () {
+          if (prev) prev();
+          cb();
+        };
+      }
+
+      function createPlayer(videoId) {
+        player = new YT.Player("player", {
+          width: 320,
+          height: 180,
+          videoId: videoId,
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            rel: 0,
+            playsinline: 1,
+            modestbranding: 1,
+            fs: 0,
+            disablekb: 1,
+            iv_load_policy: 3,
+          },
+          events: {
+            onReady: function (event) {
+              ready = true;
+              if (wantPlay) event.target.playVideo();
+              emit("ready");
+            },
+            onStateChange: function (event) {
+              if (event.data === 0) emit("ended");
+              else if (event.data === 1) emit("playing");
+              else if (event.data === 2) emit("paused");
+            },
+            onError: function () {
+              emit("error");
+            },
+          },
+        });
+      }
+
+      window.stellaPlay = function (videoId) {
+        wantPlay = true;
+        pendingId = videoId;
+        ensureApi(function () {
+          if (!player) {
+            createPlayer(videoId);
+            return;
+          }
+          try {
+            player.loadVideoById(videoId);
+            player.playVideo();
+          } catch (e) {
+            createPlayer(videoId);
+          }
+        });
+      };
+
+      window.stellaPause = function () {
+        wantPlay = false;
+        try {
+          if (player) player.pauseVideo();
+        } catch (e) {}
+      };
+
+      window.stellaResume = function () {
+        wantPlay = true;
+        try {
+          if (player) player.playVideo();
+        } catch (e) {}
+      };
+
+      window.stellaStop = function () {
+        wantPlay = false;
+        try {
+          if (player) player.stopVideo();
+        } catch (e) {}
+      };
+
+      emit("boot");
+    </script>
+  </body>
+</html>

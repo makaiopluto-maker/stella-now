@@ -2,21 +2,18 @@ package now.stella.app;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.webkit.WebView;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
   static final String PATH_EXTRA = "stella_path";
-  private final Handler mainHandler = new Handler(Looper.getMainLooper());
-  private final Runnable keepAliveTick = this::keepWebViewAudioAlive;
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     attachBridge();
+    wireMusicEnded();
     openPath(getIntent());
     if (StellaPrefs.prefs(this).getBoolean(StellaPrefs.OSHI_ALERT, false)) {
       LiveAlertScheduler.schedule(this);
@@ -27,32 +24,7 @@ public class MainActivity extends BridgeActivity {
   public void onStart() {
     super.onStart();
     attachBridge();
-  }
-
-  @Override
-  public void onPause() {
-    super.onPause();
-    // Resume WebView timers once after Capacitor pauses — avoid hammering playVideo.
-    if (MusicKeepAliveService.isRunning()) {
-      mainHandler.removeCallbacks(keepAliveTick);
-      mainHandler.post(keepAliveTick);
-      mainHandler.postDelayed(keepAliveTick, 700);
-    }
-  }
-
-  @Override
-  public void onStop() {
-    super.onStop();
-    if (MusicKeepAliveService.isRunning()) {
-      mainHandler.removeCallbacks(keepAliveTick);
-      mainHandler.post(keepAliveTick);
-    }
-  }
-
-  @Override
-  public void onResume() {
-    super.onResume();
-    mainHandler.removeCallbacks(keepAliveTick);
+    wireMusicEnded();
   }
 
   @Override
@@ -62,22 +34,17 @@ public class MainActivity extends BridgeActivity {
     openPath(intent);
   }
 
-  private void keepWebViewAudioAlive() {
-    if (!MusicKeepAliveService.isRunning()) return;
-    Bridge bridge = getBridge();
-    if (bridge == null || bridge.getWebView() == null) return;
-    WebView webView = bridge.getWebView();
-    try {
-      webView.onResume();
-      webView.resumeTimers();
-      // JS side is debounced; safe to call lightly.
-      webView.evaluateJavascript(
-        "(function(){try{window.__stellaResumeMusic&&window.__stellaResumeMusic()}catch(e){}})();",
-        null
-      );
-    } catch (Exception ignored) {
-      // Best-effort keep-alive.
-    }
+  private void wireMusicEnded() {
+    MusicKeepAliveService.setEndedListener(
+      () -> {
+        Bridge bridge = getBridge();
+        if (bridge == null || bridge.getWebView() == null) return;
+        bridge.getWebView().evaluateJavascript(
+          "(function(){try{window.__stellaMusicEnded&&window.__stellaMusicEnded()}catch(e){}})();",
+          null
+        );
+      }
+    );
   }
 
   private void attachBridge() {

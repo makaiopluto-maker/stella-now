@@ -51,13 +51,38 @@ public class StellaNativeBridge {
     );
   }
 
+  /** Legacy flag used before the dedicated service player. Kept as a stop/start helper. */
   @JavascriptInterface
   public void setMusicPlaying(boolean playing, String title, String artist) {
-    if (playing) {
-      MusicKeepAliveService.start(activity.getApplicationContext(), title, artist);
-    } else {
+    if (!playing) {
       MusicKeepAliveService.stop(activity.getApplicationContext());
     }
+  }
+
+  @JavascriptInterface
+  public void playMusic(String videoId, String title, String artist) {
+    if (videoId == null || videoId.isEmpty()) return;
+    MusicKeepAliveService.play(
+      activity.getApplicationContext(),
+      videoId,
+      title == null ? "StellaNow" : title,
+      artist == null ? "" : artist
+    );
+  }
+
+  @JavascriptInterface
+  public void pauseMusic() {
+    MusicKeepAliveService.pause(activity.getApplicationContext());
+  }
+
+  @JavascriptInterface
+  public void resumeMusic() {
+    MusicKeepAliveService.resume(activity.getApplicationContext());
+  }
+
+  @JavascriptInterface
+  public void stopMusic() {
+    MusicKeepAliveService.stop(activity.getApplicationContext());
   }
 
   @JavascriptInterface

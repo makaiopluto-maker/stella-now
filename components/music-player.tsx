@@ -14,11 +14,12 @@ import { usePathname } from "next/navigation";
 import { useOshi } from "@/components/oshi";
 import { trackArtistName, tracks, type Track } from "@/content/tracks";
 import {
-  installMusicBackgroundShield,
-  setMusicResumeHandler,
-  startMusicWatchdog,
-  stopMusicWatchdog,
-} from "@/lib/music-background";
+  isNativeMusicEngine,
+  nativePauseMusic,
+  nativePlayMusic,
+  nativeResumeMusic,
+  nativeStopMusic,
+} from "@/lib/native-music";
 import { loadYouTubeApi, type YtPlayer } from "@/lib/youtube-api";
 import { spotifyEmbedUrl, youtubeVideoId } from "@/lib/youtube";
 
@@ -88,33 +89,27 @@ function trackById(id: string | null) {
   return tracks.find((item) => item.id === id) ?? null;
 }
 
-async function syncNativeMusic(playing: boolean, title: string, artist: string) {
-  try {
-    const { Capacitor } = await import("@capacitor/core");
-    if (!Capacitor.isNativePlatform()) return;
-    const api = (
-      window as Window & {
-        StellaNative?: { setMusicPlaying?: (on: boolean, title: string, artist: string) => void };
-      }
-    ).StellaNative;
-    api?.setMusicPlaying?.(playing, title, artist);
-  } catch {
-    // Browser / bridge unavailable.
-  }
-}
-
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const initial = readSnapshot();
   const [track, setTrack] = useState<Track | null>(() => trackById(initial.trackId));
   const [expanded, setExpanded] = useState(() => Boolean(initial.trackId) && initial.expanded);
   const [playing, setPlaying] = useState(() => Boolean(initial.trackId) && initial.playing);
+  const [nativeEngine, setNativeEngine] = useState(false);
   const { slug } = useOshi();
   const playerRef = useRef<YtPlayer | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<Track | null>(track);
   const playingRef = useRef(playing);
+  const nativeRef = useRef(false);
   const skipAutoRef = useRef<(delta: number) => void>(() => {});
   const userPausedRef = useRef(false);
+
+  useEffect(() => {
+    void isNativeMusicEngine().then((value) => {
+      nativeRef.current = value;
+      setNativeEngine(value);
+    });
+  }, []);
 
   useEffect(() => {
     trackRef.current = track;
@@ -122,32 +117,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     playingRef.current = playing;
-    if (playing) {
-      userPausedRef.current = false;
-      installMusicBackgroundShield();
-      startMusicWatchdog();
-    } else {
-      stopMusicWatchdog();
-    }
   }, [playing]);
-
-  useEffect(() => {
-    setMusicResumeHandler(() => {
-      if (!playingRef.current || userPausedRef.current) return;
-      const player = playerRef.current;
-      if (!player) return;
-      try {
-        const state = player.getPlayerState();
-        // Only nudge when clearly paused/cued — never while buffering/playing.
-        if (state === 2 || state === 5 || state === -1) {
-          player.playVideo();
-        }
-      } catch {
-        // Player mid-load.
-      }
-    });
-    return () => setMusicResumeHandler(null);
-  }, []);
 
   useEffect(() => {
     writeSnapshot({
@@ -157,7 +127,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     });
   }, [track, playing, expanded]);
 
-  const destroyPlayer = useCallback(() => {
+  const destroyWebPlayer = useCallback(() => {
     try {
       playerRef.current?.destroy();
     } catch {
@@ -169,15 +139,14 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
   const stop = useCallback(() => {
     userPausedRef.current = true;
-    stopMusicWatchdog();
-    destroyPlayer();
+    destroyWebPlayer();
+    void nativeStopMusic();
     trackRef.current = null;
     setTrack(null);
     setPlaying(false);
     setExpanded(false);
     writeSnapshot({ trackId: null, playing: false, expanded: false });
-    void syncNativeMusic(false, "", "");
-  }, [destroyPlayer]);
+  }, [destroyWebPlayer]);
 
   const play = useCallback((next: Track) => {
     userPausedRef.current = false;
@@ -187,22 +156,19 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setPlaying(true);
   }, []);
 
-  const skipBy = useCallback(
-    (delta: number) => {
-      const pool = playableTracks();
-      if (pool.length === 0) return;
-      const currentId = trackRef.current?.id;
-      const index = currentId ? pool.findIndex((item) => item.id === currentId) : -1;
-      const nextIndex = index < 0 ? 0 : (index + delta + pool.length) % pool.length;
-      const next = pool[nextIndex];
-      if (!next) return;
-      userPausedRef.current = false;
-      trackRef.current = next;
-      setTrack(next);
-      setPlaying(true);
-    },
-    [],
-  );
+  const skipBy = useCallback((delta: number) => {
+    const pool = playableTracks();
+    if (pool.length === 0) return;
+    const currentId = trackRef.current?.id;
+    const index = currentId ? pool.findIndex((item) => item.id === currentId) : -1;
+    const nextIndex = index < 0 ? 0 : (index + delta + pool.length) % pool.length;
+    const next = pool[nextIndex];
+    if (!next) return;
+    userPausedRef.current = false;
+    trackRef.current = next;
+    setTrack(next);
+    setPlaying(true);
+  }, []);
 
   skipAutoRef.current = skipBy;
 
@@ -214,44 +180,34 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const togglePlay = useCallback(() => {
-    const player = playerRef.current;
-    if (!player) {
-      setPlaying((value) => {
-        userPausedRef.current = value;
-        return !value;
-      });
-      return;
-    }
-    try {
-      const state = player.getPlayerState();
-      // 1 = playing, 3 = buffering
-      if (state === 1 || state === 3 || playingRef.current) {
-        userPausedRef.current = true;
-        player.pauseVideo();
-        setPlaying(false);
-        const current = trackRef.current;
-        void syncNativeMusic(false, current?.title ?? "", trackArtistName(current?.memberSlug ?? ""));
-      } else {
-        userPausedRef.current = false;
-        player.playVideo();
-        setPlaying(true);
-        const current = trackRef.current;
-        if (current) {
-          void syncNativeMusic(true, current.title, trackArtistName(current.memberSlug));
+    if (playingRef.current) {
+      userPausedRef.current = true;
+      setPlaying(false);
+      if (nativeRef.current) void nativePauseMusic();
+      else {
+        try {
+          playerRef.current?.pauseVideo();
+        } catch {
+          // ignore
         }
       }
-    } catch {
-      setPlaying((value) => {
-        userPausedRef.current = value;
-        return !value;
-      });
+      return;
+    }
+    userPausedRef.current = false;
+    setPlaying(true);
+    if (nativeRef.current) void nativeResumeMusic();
+    else {
+      try {
+        playerRef.current?.playVideo();
+      } catch {
+        // ignore
+      }
     }
   }, []);
 
   const playQuick = useCallback(() => {
     const pool = playableTracks();
-    const preferred =
-      (slug ? pool.find((item) => item.memberSlug === slug) : null) || pool[0];
+    const preferred = (slug ? pool.find((item) => item.memberSlug === slug) : null) || pool[0];
     if (!preferred) return;
     userPausedRef.current = false;
     trackRef.current = preferred;
@@ -260,32 +216,62 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     setPlaying(true);
   }, [slug]);
 
-  // Create / swap the YouTube engine whenever the track changes.
+  // Native track changes → load in the service WebView (survives app backgrounding).
   useEffect(() => {
+    if (!nativeEngine) return;
     if (!track) {
-      destroyPlayer();
+      void nativeStopMusic();
+      return;
+    }
+    const videoId = youtubeVideoId(track.href);
+    if (!videoId) {
+      setPlaying(false);
+      return;
+    }
+    if (playingRef.current) {
+      void nativePlayMusic(videoId, track.title, trackArtistName(track.memberSlug));
+    }
+  }, [track, nativeEngine]);
+
+  // Native pause / resume without reloading the video.
+  useEffect(() => {
+    if (!nativeEngine || !track) return;
+    if (playing) void nativeResumeMusic();
+    else void nativePauseMusic();
+  }, [playing, nativeEngine, track]);
+
+  // Web fallback: hidden YouTube iframe in the page.
+  useEffect(() => {
+    if (nativeEngine) {
+      destroyWebPlayer();
+      return;
+    }
+    if (!track) {
+      destroyWebPlayer();
       return;
     }
 
     const videoId = youtubeVideoId(track.href);
-    const title = track.title;
-    const artist = trackArtistName(track.memberSlug);
-
     if (!videoId) {
-      destroyPlayer();
+      destroyWebPlayer();
       setPlaying(false);
       return;
     }
 
-    if (playingRef.current) {
-      void syncNativeMusic(true, title, artist);
+    if (!playing) {
+      try {
+        playerRef.current?.pauseVideo();
+      } catch {
+        // ignore
+      }
+      return;
     }
 
     let cancelled = false;
     void (async () => {
       await loadYouTubeApi();
       if (cancelled || !hostRef.current || !window.YT?.Player) return;
-      destroyPlayer();
+      destroyWebPlayer();
       const mount = document.createElement("div");
       hostRef.current.appendChild(mount);
       playerRef.current = new window.YT.Player(mount, {
@@ -293,7 +279,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         width: 160,
         height: 90,
         playerVars: {
-          autoplay: playingRef.current ? 1 : 0,
+          autoplay: 1,
           controls: 0,
           rel: 0,
           playsinline: 1,
@@ -305,81 +291,68 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         events: {
           onReady: (event) => {
             if (cancelled) return;
-            if (playingRef.current) {
-              event.target.playVideo();
-              setPlaying(true);
-              void syncNativeMusic(true, title, artist);
-            }
+            event.target.playVideo();
+            setPlaying(true);
           },
           onStateChange: (event) => {
             if (cancelled) return;
-            // 0 ended, 1 playing, 2 paused
             if (event.data === 0) {
-              if (userPausedRef.current) {
-                setPlaying(false);
-                void syncNativeMusic(false, "", "");
-                return;
-              }
-              skipAutoRef.current(1);
+              if (!userPausedRef.current) skipAutoRef.current(1);
             } else if (event.data === 1) {
               setPlaying(true);
-              void syncNativeMusic(true, title, artist);
-            } else if (event.data === 2) {
-              // Don't fight brief YouTube pauses (buffering hiccups) with instant playVideo —
-              // that was causing stutter. Keep native service up if user still wants audio.
-              if (!userPausedRef.current && playingRef.current) {
-                void syncNativeMusic(true, title, artist);
-                window.setTimeout(() => {
-                  if (cancelled || userPausedRef.current || !playingRef.current) return;
-                  try {
-                    if (event.target.getPlayerState() === 2) {
-                      event.target.playVideo();
-                    }
-                  } catch {
-                    // ignore
-                  }
-                }, 1200);
-              } else {
-                setPlaying(false);
-                void syncNativeMusic(false, title, artist);
-              }
+            } else if (event.data === 2 && userPausedRef.current) {
+              setPlaying(false);
             }
           },
         },
       });
     })();
 
-    if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
-      try {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title,
-          artist,
-          artwork: track.thumb ? [{ src: track.thumb, sizes: "512x512", type: "image/jpeg" }] : [],
-        });
-        navigator.mediaSession.setActionHandler("play", () => {
-          userPausedRef.current = false;
-          playerRef.current?.playVideo();
-          setPlaying(true);
-          void syncNativeMusic(true, title, artist);
-        });
-        navigator.mediaSession.setActionHandler("pause", () => {
-          userPausedRef.current = true;
-          playerRef.current?.pauseVideo();
-          setPlaying(false);
-          void syncNativeMusic(false, title, artist);
-        });
-        navigator.mediaSession.setActionHandler("stop", () => stop());
-        navigator.mediaSession.setActionHandler("nexttrack", () => skipAutoRef.current(1));
-        navigator.mediaSession.setActionHandler("previoustrack", () => skipAutoRef.current(-1));
-      } catch {
-        // Media Session is best-effort.
-      }
-    }
-
     return () => {
       cancelled = true;
     };
-  }, [track, destroyPlayer, stop]);
+  }, [track, playing, nativeEngine, destroyWebPlayer]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.__stellaMusicEnded = () => {
+      if (userPausedRef.current) return;
+      skipAutoRef.current(1);
+    };
+    return () => {
+      delete window.__stellaMusicEnded;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator) || !track) return;
+    const title = track.title;
+    const artist = trackArtistName(track.memberSlug);
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title,
+        artist,
+        artwork: track.thumb ? [{ src: track.thumb, sizes: "512x512", type: "image/jpeg" }] : [],
+      });
+      navigator.mediaSession.setActionHandler("play", () => {
+        userPausedRef.current = false;
+        setPlaying(true);
+        if (nativeRef.current) void nativeResumeMusic();
+        else playerRef.current?.playVideo();
+      });
+      navigator.mediaSession.setActionHandler("pause", () => {
+        userPausedRef.current = true;
+        setPlaying(false);
+        if (nativeRef.current) void nativePauseMusic();
+        else playerRef.current?.pauseVideo();
+      });
+      navigator.mediaSession.setActionHandler("stop", () => stop());
+      navigator.mediaSession.setActionHandler("nexttrack", () => skipAutoRef.current(1));
+      navigator.mediaSession.setActionHandler("previoustrack", () => skipAutoRef.current(-1));
+    } catch {
+      // Media Session is best-effort.
+    }
+  }, [track, stop]);
 
   const value = useMemo(
     () => ({
@@ -400,12 +373,13 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   return (
     <MusicPlayerContext.Provider value={value}>
       {children}
-      {/* Keep a tiny in-viewport engine so WebView/YouTube don't treat it as hidden. */}
-      <div
-        ref={hostRef}
-        aria-hidden
-        className="pointer-events-none fixed bottom-0 left-0 z-0 h-[90px] w-[160px] overflow-hidden opacity-[0.02]"
-      />
+      {!nativeEngine ? (
+        <div
+          ref={hostRef}
+          aria-hidden
+          className="pointer-events-none fixed bottom-0 left-0 z-0 h-[90px] w-[160px] overflow-hidden opacity-[0.02]"
+        />
+      ) : null}
       <CustomPlayerShell />
       <MusicLauncher />
     </MusicPlayerContext.Provider>
@@ -416,6 +390,12 @@ export function useMusicPlayer() {
   const value = useContext(MusicPlayerContext);
   if (!value) throw new Error("MusicPlayerProvider missing");
   return value;
+}
+
+declare global {
+  interface Window {
+    __stellaMusicEnded?: () => void;
+  }
 }
 
 function CustomPlayerShell() {
@@ -526,7 +506,6 @@ function MusicLauncher() {
   const { track, playQuick } = useMusicPlayer();
   if (track) return null;
 
-  // Available on every main tab, not only home.
   const allowed =
     pathname === "/" ||
     pathname.startsWith("/members") ||
