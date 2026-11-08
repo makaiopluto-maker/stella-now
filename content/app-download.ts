@@ -1,5 +1,5 @@
 export const appDownload = {
-  version: "1.28.5",
+  version: "1.28.6",
   label: "Android APK",
   // GitHub Releases asset name must stay stella-now.apk
   href: "https://github.com/makaiopluto-maker/stella-now/releases/download/apk-latest/stella-now.apk",

@@ -11,7 +11,7 @@
         android:id="@+id/widget_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Stella Now"
+        android:text="StellaNow"
         android:textColor="#7B5CFF"
         android:textSize="12sp"
         android:textStyle="bold" />

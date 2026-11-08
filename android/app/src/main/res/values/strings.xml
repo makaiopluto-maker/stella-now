@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Stella Now</string>
-    <string name="title_activity_main">Stella Now</string>
+    <string name="app_name">StellaNow</string>
+    <string name="title_activity_main">StellaNow</string>
     <string name="package_name">now.stella.app</string>
     <string name="custom_url_scheme">now.stella.app</string>
     <string name="widget_live_description">지금 방송 중인 스텔라이브 멤버</string>
