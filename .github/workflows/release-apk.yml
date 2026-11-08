@@ -41,16 +41,16 @@ jobs:
 
       - run: npx cap sync android
 
-      - name: Build debug APK
+      - name: Build release APK
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
 
       - name: Prepare artifact
         run: |
           mkdir -p dist
-          cp android/app/build/outputs/apk/debug/app-debug.apk dist/stella-now.apk
+          cp android/app/build/outputs/apk/release/app-release.apk dist/stella-now.apk
           VERSION="$(node -p "require('./package.json').version")"
           printf '%s\n' "{
             \"version\": \"$VERSION\",

@@ -50,4 +50,6 @@ next-env.d.ts
 *.keystore
 *.apk
 *.jks
+# Keep the committed sideload upload key so CI APKs share one signature.
+!android/keystore/stella-upload.jks
 /android/keystore.properties
