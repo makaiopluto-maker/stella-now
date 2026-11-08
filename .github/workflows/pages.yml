@@ -39,11 +39,6 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
-      # Actions deploys ignore public/CNAME — set the Pages custom domain via API.
-      - name: Set custom domain
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api -X PUT "repos/${{ github.repository }}/pages" \
-            -f cname='stellanow.kr' \
-            -F https_enforced=true
+      # Custom domain must be set once by a repo admin:
+      # Settings → Pages → Custom domain → stellanow.kr → Save → Enforce HTTPS.
+      # (GITHUB_TOKEN cannot update Pages cname on this repo.)
