@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { fanartTags, members, shortName } from "@/content/members";
 import { posts, replyTargetLabel, replyText, type Post, type PostPlatform } from "@/content/posts";
@@ -53,12 +53,15 @@ export function PostFeed() {
   const [savedOnly, setSavedOnly] = useState(false);
   const keptHistory = useRef(false);
   const wantTweets = routeReady && member !== "none" && (tag === "all" || tag === "none");
-  priorityRef.current = member === "none" ? "all" : member;
+
+  useEffect(() => {
+    priorityRef.current = member === "none" ? "all" : member;
+  }, [member]);
 
   async function save(file: MediaFile) {
     try {
-      await saveRemoteFile(file.fileUrl, file.filename);
-      setNotice("저장을 시작했어요");
+      const result = await saveRemoteFile(file.fileUrl, file.filename);
+      setNotice(result === "opened" ? "저장 화면을 열었어요" : "저장을 시작했어요");
     } catch {
       window.open(file.fileUrl, "_blank", "noopener");
       setNotice("저장 화면을 열었어요");
@@ -100,6 +103,9 @@ export function PostFeed() {
     let stop = false;
     const known = new Set(posts.filter((post) => post.platform === "cafe").map((post) => post.id));
     void (async () => {
+      const { Capacitor } = await import("@capacitor/core");
+      // Pages has no cafe proxy — baked posts.json only. Skip before paging UI or empty catch loops.
+      if (!Capacitor.isNativePlatform() && process.env.NODE_ENV === "production") return;
       const archive = await readTweetArchive();
       if (stop) return;
       for (const post of archive.posts) if (post.platform === "cafe") known.add(post.id);
@@ -136,6 +142,9 @@ export function PostFeed() {
     let stop = false;
     const known = new Set(posts.filter((post) => post.platform === "fanding").map((post) => post.id));
     void (async () => {
+      const { Capacitor } = await import("@capacitor/core");
+      // Pages has no fanding proxy — baked posts.json only. Skip before paging UI or empty catch loops.
+      if (!Capacitor.isNativePlatform() && process.env.NODE_ENV === "production") return;
       const archive = await readTweetArchive();
       if (stop) return;
       for (const post of archive.posts) if (post.platform === "fanding") known.add(post.id);
@@ -168,17 +177,22 @@ export function PostFeed() {
   }, [restored]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const slug = params.get("member");
-    if (slug && members.some((item) => item.slug === slug)) setMember(slug);
-    const requested = params.get("platform");
-    if (requested === "fanding" || requested === "cafe" || requested === "x") setPlatform(requested);
-    setHideReplies(readFlag(hideRepliesKey));
-    markNoticesSeen();
-    setRouteReady(true);
+    let cancel = false;
+    queueMicrotask(() => {
+      if (cancel) return;
+      const params = new URLSearchParams(window.location.search);
+      const slug = params.get("member");
+      if (slug && members.some((item) => item.slug === slug)) setMember(slug);
+      const requested = params.get("platform");
+      if (requested === "fanding" || requested === "cafe" || requested === "x") setPlatform(requested);
+      setHideReplies(readFlag(hideRepliesKey));
+      markNoticesSeen();
+      setRouteReady(true);
+    });
     const stopHide = subscribePref(hideRepliesKey, () => setHideReplies(readFlag(hideRepliesKey)));
     const stopBooks = subscribeBookmarks(() => setBookmarkTick((value) => value + 1));
     return () => {
+      cancel = true;
       stopHide();
       stopBooks();
     };
@@ -194,8 +208,15 @@ export function PostFeed() {
   }, [filtersOpen]);
 
   useEffect(() => {
-    setShown(40);
-    document.querySelector("main")?.scrollTo({ top: 0 });
+    let cancel = false;
+    queueMicrotask(() => {
+      if (cancel) return;
+      setShown(40);
+      document.querySelector("main")?.scrollTo({ top: 0 });
+    });
+    return () => {
+      cancel = true;
+    };
   }, [member, tag, platform, query]);
 
   useEffect(() => {
@@ -220,8 +241,8 @@ export function PostFeed() {
     if (tag === "all" || tag === "none") return;
     const slug = fanartTags.find((item) => item.tag === tag)?.slug;
     let stop = false;
-    setTagPaging(true);
     void (async () => {
+      setTagPaging(true);
       let cursor: string | undefined;
       const seen = new Set<string>();
       const seenIds = new Set<string>();
@@ -281,13 +302,13 @@ export function PostFeed() {
 
   useEffect(() => {
     if (!loaded || !wantTweets) {
-      setPaging(false);
+      queueMicrotask(() => setPaging(false));
       return;
     }
     // Saved history stays on the device. Opening the app only checks for new posts;
     // older pages resume when the user asks for more.
     if (keptHistory.current && walkId === 0) {
-      setPaging(false);
+      queueMicrotask(() => setPaging(false));
       return;
     }
     let stop = false;
@@ -825,16 +846,16 @@ function FilterChip({
 }
 
 function BookmarkButton({ post }: { post: Post }) {
-  const [saved, setSaved] = useState(false);
-  useEffect(() => {
-    setSaved(isBookmarked(post.id));
-    return subscribeBookmarks(() => setSaved(isBookmarked(post.id)));
-  }, [post.id]);
+  const saved = useSyncExternalStore(
+    subscribeBookmarks,
+    () => isBookmarked(post.id),
+    () => false,
+  );
   return (
     <button
       type="button"
       aria-pressed={saved}
-      onClick={() => setSaved(toggleBookmark(post))}
+      onClick={() => toggleBookmark(post)}
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${
         saved ? "bg-[#f3f0ff] text-violet" : "bg-[#f2f3f7] text-ink"
       }`}

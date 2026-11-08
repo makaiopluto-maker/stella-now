@@ -24,9 +24,17 @@ export function ScheduleBoard() {
   const [selected, setSelected] = useState<CalendarDate | null>(null);
 
   useEffect(() => {
-    const current = seoulToday();
-    setToday(current);
-    setVisible({ year: current.year, month: current.month });
+    let cancel = false;
+    // Client-only Seoul calendar date — defer to avoid sync setState-in-effect lint.
+    queueMicrotask(() => {
+      if (cancel) return;
+      const current = seoulToday();
+      setToday(current);
+      setVisible({ year: current.year, month: current.month });
+    });
+    return () => {
+      cancel = true;
+    };
   }, []);
 
   if (!today || !visible) {

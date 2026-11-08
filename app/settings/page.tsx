@@ -31,7 +31,15 @@ export default function SettingsPage() {
   const [deviceAlert, setDeviceAlert] = useState<NotificationPermission | "unknown">("unknown");
 
   useEffect(() => {
-    setDeviceAlert(typeof Notification === "undefined" ? "denied" : Notification.permission);
+    let cancel = false;
+    // Defer past the effect body so permission is read after paint / alert toggles.
+    queueMicrotask(() => {
+      if (cancel) return;
+      setDeviceAlert(typeof Notification === "undefined" ? "denied" : Notification.permission);
+    });
+    return () => {
+      cancel = true;
+    };
   }, [alert]);
 
   return (

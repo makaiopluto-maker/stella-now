@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { hasNewNotices, subscribeNoticeBadge } from "@/lib/notice-badge";
 
 const tabs = [
@@ -14,12 +14,7 @@ const tabs = [
 
 export function BottomNav() {
   const pathname = usePathname();
-  const [fresh, setFresh] = useState(false);
-
-  useEffect(() => {
-    setFresh(hasNewNotices());
-    return subscribeNoticeBadge(() => setFresh(hasNewNotices()));
-  }, [pathname]);
+  const fresh = useSyncExternalStore(subscribeNoticeBadge, hasNewNotices, () => false);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white md:hidden">

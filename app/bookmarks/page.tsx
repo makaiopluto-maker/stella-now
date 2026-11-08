@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { SettingsButton } from "@/components/settings-button";
 import { members } from "@/content/members";
@@ -9,12 +9,7 @@ import { replyTargetLabel, replyText, type Post } from "@/content/posts";
 import { isBookmarked, readBookmarks, subscribeBookmarks, toggleBookmark } from "@/lib/bookmarks";
 
 export default function BookmarksPage() {
-  const [rows, setRows] = useState<Post[]>([]);
-
-  useEffect(() => {
-    setRows(readBookmarks());
-    return subscribeBookmarks(() => setRows(readBookmarks()));
-  }, []);
+  const rows = useSyncExternalStore(subscribeBookmarks, readBookmarks, () => [] as Post[]);
 
   return (
     <div>

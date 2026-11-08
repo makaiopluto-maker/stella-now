@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 const KEY = "stella-now-oshi";
 const ALERT_KEY = "stella-now-oshi-alert";
@@ -20,22 +20,26 @@ function storedAlert() {
   return window.localStorage.getItem(ALERT_KEY) === "1";
 }
 
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function getSnapshot() {
+  return `${storedSlug() ?? ""}\u0000${storedAlert() ? "1" : "0"}`;
+}
+
+function getServerSnapshot() {
+  return "\u00000";
+}
+
 export function useOshi() {
-  const [ready, setReady] = useState(false);
-  const [version, setVersion] = useState(0);
-
-  useEffect(() => {
-    setReady(true);
-    const update = () => setVersion((current) => current + 1);
-    listeners.add(update);
-    return () => {
-      listeners.delete(update);
-    };
-  }, []);
-
-  const slug = ready ? storedSlug() : null;
-  const alert = ready ? storedAlert() : false;
-  void version;
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const split = snapshot.indexOf("\u0000");
+  const slug = snapshot.slice(0, split) || null;
+  const alert = snapshot.slice(split + 1) === "1";
 
   function choose(next: string) {
     window.localStorage.setItem(KEY, next);

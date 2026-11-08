@@ -114,7 +114,8 @@ public class LiveWidgetProvider extends AppWidgetProvider {
     if (intent == null) {
       intent = new Intent(context, MainActivity.class);
     }
-    intent.putExtra("android.intent.extra.TEXT", "/live/");
+    // MainActivity reads this and routes the WebView to /live/.
+    intent.putExtra(MainActivity.PATH_EXTRA, "/live/");
     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
     PendingIntent pending = PendingIntent.getActivity(
       context,

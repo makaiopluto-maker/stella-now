@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Capacitor copies the static export here during `cap sync`.
+    "android/app/src/main/assets/**",
+    "android/app/build/**",
+    "android/build/**",
   ]),
 ]);
 

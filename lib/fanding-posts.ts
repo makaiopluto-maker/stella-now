@@ -43,7 +43,9 @@ async function readJson(remote: string, localPath: string) {
     return typeof response.data === "string" ? JSON.parse(response.data) : response.data;
   }
   // Static GitHub Pages has no fanding proxy — rely on baked posts.json.
-  if (process.env.NODE_ENV === "production") throw new Error("fanding proxy unavailable");
+  if (process.env.NODE_ENV === "production") {
+    return { aData: { aPostList: [], iLastPostNo: undefined } };
+  }
   const url = new URL(withBasePath(localPath), window.location.origin);
   url.search = new URL(remote).search;
   const response = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } });

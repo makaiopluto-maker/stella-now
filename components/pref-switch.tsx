@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { readFlag, subscribePref, writeFlag } from "@/lib/prefs";
 
 export function PrefSwitch({
@@ -16,12 +16,11 @@ export function PrefSwitch({
   ariaLabel: string;
   onEnable?: () => void | Promise<void>;
 }) {
-  const [on, setOn] = useState(false);
-
-  useEffect(() => {
-    setOn(readFlag(storageKey));
-    return subscribePref(storageKey, () => setOn(readFlag(storageKey)));
-  }, [storageKey]);
+  const on = useSyncExternalStore(
+    (listener) => subscribePref(storageKey, listener),
+    () => readFlag(storageKey),
+    () => false,
+  );
 
   return (
     <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-line px-4 py-3.5">
@@ -37,7 +36,6 @@ export function PrefSwitch({
         onClick={() => {
           const next = !on;
           writeFlag(storageKey, next);
-          setOn(next);
           if (next && onEnable) void onEnable();
         }}
         className={`relative h-7 w-12 shrink-0 rounded-full ${on ? "bg-violet" : "bg-[#e6e8ee]"}`}
