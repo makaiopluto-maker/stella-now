@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { occursOn, schedule, seoulToday } from "@/content/schedule";
+import { withBasePath } from "@/lib/base-path";
 import { readFlag, readJson, subscribePref, writeJson } from "@/lib/prefs";
 
 const alertKey = "stella-now-schedule-alert";
@@ -32,7 +33,8 @@ export function ScheduleAlert() {
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         const note = new Notification(`오늘 일정 · ${next.title}`, { body: "일정 탭에서 확인할 수 있어요" });
         note.onclick = () => {
-          window.location.assign(next.href.startsWith("/") ? next.href : "/calendar/");
+          const href = next.href.startsWith("/") ? next.href : "/calendar/";
+          window.location.assign(withBasePath(href));
         };
       }
     }

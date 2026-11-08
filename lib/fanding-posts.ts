@@ -1,5 +1,6 @@
 import type { Post } from "@/content/posts";
 import { members } from "@/content/members";
+import { withBasePath } from "@/lib/base-path";
 
 type FandingPost = {
   iPostNo?: number;
@@ -41,7 +42,9 @@ async function readJson(remote: string, localPath: string) {
     if (response.status < 200 || response.status >= 300) throw new Error(String(response.status));
     return typeof response.data === "string" ? JSON.parse(response.data) : response.data;
   }
-  const url = new URL(localPath, window.location.origin);
+  // Static GitHub Pages has no fanding proxy — rely on baked posts.json.
+  if (process.env.NODE_ENV === "production") throw new Error("fanding proxy unavailable");
+  const url = new URL(withBasePath(localPath), window.location.origin);
   url.search = new URL(remote).search;
   const response = await fetch(url, { cache: "no-store", headers: { Accept: "application/json" } });
   if (!response.ok) throw new Error(String(response.status));

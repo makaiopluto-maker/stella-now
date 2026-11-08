@@ -7,18 +7,14 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
-  group: live
+  group: live-refresh
   cancel-in-progress: false
 
 jobs:
-  build:
+  refresh:
     runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.live.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,28 +34,9 @@ jobs:
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+      # Push only — Deploy website (pages.yml) builds and publishes from main.
       - if: steps.live.outputs.changed == 'true'
-        run: npm run build
-        env:
-          GITHUB_PAGES: "1"
-      - if: steps.live.outputs.changed == 'true'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: out
-      - if: steps.live.outputs.changed == 'true'
-        continue-on-error: true
         run: |
           git add content/live.json content/posts.json content/goods-sales.json content/tracks.json
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Update live status, posts, goods, and tracks."
           git push
-
-  deploy:
-    needs: build
-    if: needs.build.outputs.changed == 'true'
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4

@@ -36,9 +36,8 @@ jobs:
 
       - run: npm ci
 
+      # Capacitor serves `out/` at the app origin root — never bake GitHub Pages basePath into the APK.
       - run: npm run build
-        env:
-          GITHUB_PAGES: "1"
 
       - run: npx cap sync android
 
