@@ -3,7 +3,9 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 const outPath = new URL("../content/tracks.json", import.meta.url);
 const artistsPath = new URL("../content/spotify-artists.json", import.meta.url);
 const artists = JSON.parse(readFileSync(artistsPath, "utf8"));
-const artistById = new Map(artists.map((artist) => [artist.id, artist]));
+const artistById = new Map(
+  artists.filter((artist) => artist.id).map((artist) => [artist.id, artist]),
+);
 
 // Group / known album seeds so new album cuts still appear even before they hit popular.
 const seedAlbums = [
@@ -42,6 +44,11 @@ const pendingTrackIds = new Set();
 
 try {
   for (const artist of artists) {
+    // Some members have no Spotify artist page yet — still listed with id:null so the roster is complete.
+    if (!artist.id) {
+      console.log(`spotify artist ${artist.name}: no page`);
+      continue;
+    }
     const entity = await embedEntity("artist", artist.id);
     const list = entity?.trackList || [];
     console.log(`spotify artist ${artist.name}: ${list.length}`);

@@ -1,6 +1,7 @@
 [
   { "slug": "stellive", "id": "4epcW7GdBzjUkKmU1hIcMP", "name": "StelLive" },
   { "slug": "yuni", "id": "2pnqC8FDHGWKNoye4DKvmb", "name": "Ayatsuno Yuni" },
+  { "slug": "huya", "id": null, "name": "Sakihane Huya" },
   { "slug": "kanna", "id": "5RKYutk9PvyLwOXqIk191K", "name": "AIRI KANNA" },
   { "slug": "hina", "id": "5Rn9nehXFL1tpFFB2SOw0C", "name": "Shirayuki Hina" },
   { "slug": "mashiro", "id": "3t2spxFDRtleNPXSNtq2m0", "name": "Neneko Mashiro" },
@@ -9,5 +10,9 @@
   { "slug": "shibuki", "id": "1nCJ4nEJwzx8IPNMsG6Udw", "name": "TENKO SHIBUKI" },
   { "slug": "rin", "id": "3F0YVnaajUrMgGqsClH8iQ", "name": "Aokumo Rin" },
   { "slug": "nana", "id": "45F75v6Rz5Xh1QfH0YjqYt", "name": "Hanako Nana" },
-  { "slug": "riko", "id": "5i4ZUOyZClkgCZVHnkmtYr", "name": "Yuzuha Riko" }
+  { "slug": "riko", "id": "5i4ZUOyZClkgCZVHnkmtYr", "name": "Yuzuha Riko" },
+  { "slug": "toa", "id": null, "name": "Shizuki Toa" },
+  { "slug": "rang", "id": null, "name": "Cogane Rang" },
+  { "slug": "hiyori", "id": null, "name": "Hanayo Hiyori" },
+  { "slug": "mary", "id": null, "name": "Tokino Mary" }
 ]
