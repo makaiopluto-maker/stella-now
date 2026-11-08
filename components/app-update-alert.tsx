@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ExternalLink } from "@/components/external-link";
 import { appDownload } from "@/content/app-download";
 import {
@@ -19,37 +19,49 @@ type UpdateInfo = {
 export function AppUpdateAlert() {
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
 
+  const check = useCallback(async (force = false) => {
+    try {
+      const { Capacitor } = await import("@capacitor/core");
+      if (!Capacitor.isNativePlatform()) return;
+
+      const latest = await fetchLatestAppVersion();
+      if (!latest?.version) return;
+
+      const current = await installedAppVersion();
+      if (!isNewerVersion(latest.version, current)) {
+        setUpdate(null);
+        return;
+      }
+      if (!force && readDismissedVersion() === latest.version) return;
+
+      setUpdate({
+        version: latest.version,
+        href: latest.apk || appDownload.href,
+      });
+    } catch {
+      // Offline / rate-limit: skip quietly.
+    }
+  }, []);
+
   useEffect(() => {
     let stop = false;
-
-    async function check() {
-      try {
-        const { Capacitor } = await import("@capacitor/core");
-        if (!Capacitor.isNativePlatform()) return;
-
-        const latest = await fetchLatestAppVersion();
-        if (stop || !latest?.version) return;
-
-        const current = installedAppVersion();
-        if (!isNewerVersion(latest.version, current)) return;
-        if (readDismissedVersion() === latest.version) return;
-
-        setUpdate({
-          version: latest.version,
-          href: latest.apk || appDownload.href,
-        });
-      } catch {
-        // Offline / rate-limit: skip quietly.
-      }
-    }
-
-    void check();
-    const timer = window.setInterval(() => void check(), 6 * 60 * 60 * 1000);
+    const run = () => {
+      if (!stop) void check(false);
+    };
+    run();
+    const timer = window.setInterval(run, 30 * 60 * 1000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") run();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
     return () => {
       stop = true;
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
     };
-  }, []);
+  }, [check]);
 
   if (!update) return null;
 

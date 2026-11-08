@@ -9,7 +9,20 @@ export type AppVersionManifest = {
 
 const dismissKey = "stella-now-update-dismissed";
 
-export function installedAppVersion() {
+/** Prefer the native APK versionName; fall back to the baked web bundle version. */
+export async function installedAppVersion() {
+  try {
+    const { Capacitor } = await import("@capacitor/core");
+    if (Capacitor.isNativePlatform()) {
+      const api = (
+        window as Window & { StellaNative?: { getAppVersion?: () => string } }
+      ).StellaNative;
+      const native = api?.getAppVersion?.();
+      if (typeof native === "string" && /^\d+\.\d+\.\d+/.test(native)) return native;
+    }
+  } catch {
+    // Fall through.
+  }
   return appDownload.version;
 }
 
@@ -34,11 +47,18 @@ export function dismissUpdateVersion(version: string) {
   window.localStorage.setItem(dismissKey, version);
 }
 
+export function clearDismissedVersion() {
+  window.localStorage.removeItem(dismissKey);
+}
+
 export async function fetchLatestAppVersion(): Promise<AppVersionManifest | null> {
+  const stamp = Date.now();
   const urls = [
+    // Raw GitHub is the most reliable for CapacitorHttp (no release-asset redirect).
+    `https://raw.githubusercontent.com/makaiopluto-maker/stella-now/main/content/app-version.json?t=${stamp}`,
+    `https://stellanow.kro.kr/app-version.json?t=${stamp}`,
+    `${siteBasePath()}/app-version.json?t=${stamp}`,
     appDownload.versionManifestHref,
-    `${siteBasePath()}/app-version.json`,
-    "https://stellanow.kro.kr/app-version.json",
   ];
 
   for (const url of urls) {

@@ -3,11 +3,19 @@
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { ApkDownload } from "@/components/apk-download";
+import { ExternalLink } from "@/components/external-link";
 import { PrefSwitch } from "@/components/pref-switch";
 import { useOshi } from "@/components/oshi";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { scheduleAlertKey } from "@/components/schedule-alert";
 import { members, shortName } from "@/content/members";
+import {
+  clearDismissedVersion,
+  fetchLatestAppVersion,
+  installedAppVersion,
+  isNewerVersion,
+} from "@/lib/app-update";
+import { appDownload } from "@/content/app-download";
 import { readTheme, subscribeTheme, writeTheme, type ThemeMode } from "@/lib/theme";
 
 const shortcuts = [
@@ -29,6 +37,10 @@ export default function SettingsPage() {
   const oshi = members.find((member) => member.slug === slug);
   const [deviceAlert, setDeviceAlert] = useState<NotificationPermission | "unknown">("unknown");
   const theme = useSyncExternalStore(subscribeTheme, readTheme, () => "system" as ThemeMode);
+  const [currentVersion, setCurrentVersion] = useState(appDownload.version);
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
+  const [updateHref, setUpdateHref] = useState(appDownload.href);
+  const [updateStatus, setUpdateStatus] = useState("확인 중");
 
   useEffect(() => {
     let cancel = false;
@@ -41,6 +53,32 @@ export default function SettingsPage() {
       cancel = true;
     };
   }, [alert]);
+
+  useEffect(() => {
+    let cancel = false;
+    async function load() {
+      const current = await installedAppVersion();
+      if (cancel) return;
+      setCurrentVersion(current);
+      const latest = await fetchLatestAppVersion();
+      if (cancel) return;
+      if (!latest?.version) {
+        setUpdateStatus("최신 버전을 불러오지 못했어요");
+        return;
+      }
+      setLatestVersion(latest.version);
+      setUpdateHref(latest.apk || appDownload.href);
+      setUpdateStatus(
+        isNewerVersion(latest.version, current)
+          ? `새 버전 ${latest.version} 있음`
+          : "최신 버전입니다",
+      );
+    }
+    void load();
+    return () => {
+      cancel = true;
+    };
+  }, []);
 
   return (
     <div>
@@ -161,6 +199,53 @@ export default function SettingsPage() {
       </section>
 
       <ApkDownload />
+
+      <section className="mt-8">
+        <h2 className="text-lg font-bold">앱 버전</h2>
+        <p className="mt-1 text-sm leading-6 text-muted">
+          현재 {currentVersion}
+          {latestVersion ? ` · 최신 ${latestVersion}` : ""}
+        </p>
+        <div className="mt-3 rounded-xl border border-line px-4 py-3.5">
+          <p className="text-sm font-medium">{updateStatus}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="h-9 rounded-full bg-soft px-4 text-sm font-medium"
+              onClick={() => {
+                clearDismissedVersion();
+                void (async () => {
+                  setUpdateStatus("확인 중");
+                  const current = await installedAppVersion();
+                  setCurrentVersion(current);
+                  const latest = await fetchLatestAppVersion();
+                  if (!latest?.version) {
+                    setUpdateStatus("최신 버전을 불러오지 못했어요");
+                    return;
+                  }
+                  setLatestVersion(latest.version);
+                  setUpdateHref(latest.apk || appDownload.href);
+                  setUpdateStatus(
+                    isNewerVersion(latest.version, current)
+                      ? `새 버전 ${latest.version} 있음`
+                      : "최신 버전입니다",
+                  );
+                })();
+              }}
+            >
+              다시 확인
+            </button>
+            {latestVersion && isNewerVersion(latestVersion, currentVersion) ? (
+              <ExternalLink
+                href={updateHref}
+                className="inline-flex h-9 items-center rounded-full bg-violet px-4 text-sm font-medium text-white"
+              >
+                업데이트 받기
+              </ExternalLink>
+            ) : null}
+          </div>
+        </div>
+      </section>
 
       <p className="mt-8 text-sm leading-6 text-muted">
         팬이 만든 안내 페이지입니다. 방송은 치지직, 음원은 유튜브, 굿즈 결제와 재고는 팬딩에서

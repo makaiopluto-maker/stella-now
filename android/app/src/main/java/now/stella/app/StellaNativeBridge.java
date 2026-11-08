@@ -59,4 +59,9 @@ public class StellaNativeBridge {
       MusicKeepAliveService.stop(activity.getApplicationContext());
     }
   }
+
+  @JavascriptInterface
+  public String getAppVersion() {
+    return BuildConfig.VERSION_NAME;
+  }
 }
