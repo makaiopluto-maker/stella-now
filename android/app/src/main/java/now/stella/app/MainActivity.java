@@ -9,6 +9,12 @@ public class MainActivity extends BridgeActivity {
   static final String PATH_EXTRA = "stella_path";
 
   @Override
+  public void onCreate(android.os.Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    openPath(getIntent());
+  }
+
+  @Override
   protected void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
     if (intent != null) setIntent(intent);

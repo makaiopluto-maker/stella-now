@@ -608,6 +608,8 @@ export function PostFeed() {
       {viewer ? (
         <div className="fixed inset-0 z-[80] flex flex-col bg-black" onClick={() => setViewer(null)}>
           <div className="flex min-h-0 flex-1 items-center justify-center px-3">
+            {/* Remote cafe/X/fanding CDNs — next/image remotePatterns can't cover every host. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={viewer.src}
               alt=""
@@ -663,6 +665,7 @@ function PostRow({
               {pictures.map((picture) => (
                 <div key={picture.src} className="relative overflow-hidden rounded-xl">
                   <button type="button" onClick={() => onOpen(picture)} className="block w-full">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={previewSrc(picture.src)} alt="" referrerPolicy={imageReferrer(picture.src)} className="block h-auto w-full max-w-full" />
                   </button>
                   {picture.video ? (
