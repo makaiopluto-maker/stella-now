@@ -1,13 +1,13 @@
 {
   "yuni": {
-    "live": true,
-    "viewers": 4253,
-    "openDate": "2026-11-08 18:49:27"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "huya": {
-    "live": true,
-    "viewers": 2574,
-    "openDate": "2026-11-08 17:01:05"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "hina": {
     "live": false,
@@ -15,58 +15,58 @@
     "openDate": null
   },
   "mashiro": {
-    "live": true,
-    "viewers": 3162,
-    "openDate": "2026-11-08 16:46:56"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "lize": {
-    "live": true,
-    "viewers": 2651,
-    "openDate": "2026-11-08 20:52:33"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "tabi": {
-    "live": true,
-    "viewers": 5333,
-    "openDate": "2026-11-08 15:20:10"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "shibuki": {
-    "live": true,
-    "viewers": 5739,
-    "openDate": "2026-11-08 18:02:40"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "rin": {
-    "live": true,
-    "viewers": 3728,
-    "openDate": "2026-11-08 19:59:32"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "nana": {
-    "live": true,
-    "viewers": 3855,
-    "openDate": "2026-11-08 19:02:28"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "riko": {
-    "live": true,
-    "viewers": 2901,
-    "openDate": "2026-11-08 16:59:37"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "toa": {
     "live": true,
-    "viewers": 5158,
+    "viewers": 3518,
     "openDate": "2026-11-08 16:29:17"
   },
   "rang": {
     "live": true,
-    "viewers": 3497,
+    "viewers": 3162,
     "openDate": "2026-11-08 22:00:19"
   },
   "hiyori": {
     "live": true,
-    "viewers": 25832,
+    "viewers": 14131,
     "openDate": "2026-11-08 20:31:06"
   },
   "mary": {
-    "live": true,
-    "viewers": 10651,
-    "openDate": "2026-11-08 17:11:55"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   }
 }
