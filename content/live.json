@@ -15,9 +15,9 @@
     "openDate": null
   },
   "mashiro": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 5593,
+    "openDate": "2026-11-10 18:22:25"
   },
   "lize": {
     "live": false,
@@ -25,9 +25,9 @@
     "openDate": null
   },
   "tabi": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 4690,
+    "openDate": "2026-11-10 18:28:33"
   },
   "shibuki": {
     "live": false,
