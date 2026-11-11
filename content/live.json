@@ -1,13 +1,13 @@
 {
   "yuni": {
-    "live": true,
-    "viewers": 3133,
-    "openDate": "2026-11-11 17:41:07"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "huya": {
-    "live": true,
-    "viewers": 2198,
-    "openDate": "2026-11-11 16:32:48"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "hina": {
     "live": false,
@@ -40,33 +40,33 @@
     "openDate": null
   },
   "nana": {
-    "live": true,
-    "viewers": 3372,
-    "openDate": "2026-11-11 21:02:07"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "riko": {
-    "live": true,
-    "viewers": 2362,
-    "openDate": "2026-11-11 18:01:32"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "toa": {
-    "live": true,
-    "viewers": 2844,
-    "openDate": "2026-11-11 17:55:41"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "rang": {
-    "live": true,
-    "viewers": 2945,
-    "openDate": "2026-11-11 16:29:53"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "hiyori": {
-    "live": true,
-    "viewers": 12323,
-    "openDate": "2026-11-11 21:30:00"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "mary": {
-    "live": true,
-    "viewers": 5698,
-    "openDate": "2026-11-11 16:29:53"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   }
 }
