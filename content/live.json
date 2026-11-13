@@ -30,9 +30,9 @@
     "openDate": null
   },
   "shibuki": {
-    "live": true,
-    "viewers": 5568,
-    "openDate": "2026-11-13 18:31:18"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "rin": {
     "live": false,
@@ -45,14 +45,14 @@
     "openDate": null
   },
   "riko": {
-    "live": true,
-    "viewers": 4226,
-    "openDate": "2026-11-13 19:29:44"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "toa": {
-    "live": true,
-    "viewers": 8342,
-    "openDate": "2026-11-13 17:30:47"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "rang": {
     "live": false,
