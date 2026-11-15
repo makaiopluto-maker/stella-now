@@ -20,9 +20,9 @@
     "openDate": null
   },
   "lize": {
-    "live": true,
-    "viewers": 3899,
-    "openDate": "2026-11-15 04:13:14"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "tabi": {
     "live": false,
