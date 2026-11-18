@@ -60,9 +60,9 @@
     "openDate": null
   },
   "hiyori": {
-    "live": true,
-    "viewers": 10363,
-    "openDate": "2026-11-17 20:59:51"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "mary": {
     "live": false,
