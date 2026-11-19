@@ -55,14 +55,14 @@
     "openDate": null
   },
   "rang": {
-    "live": true,
-    "viewers": 3998,
-    "openDate": "2026-11-19 23:43:40"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "hiyori": {
-    "live": true,
-    "viewers": 10302,
-    "openDate": "2026-11-19 21:00:12"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "mary": {
     "live": false,
