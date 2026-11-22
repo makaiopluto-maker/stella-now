@@ -1,8 +1,8 @@
 {
   "yuni": {
-    "live": true,
-    "viewers": 4589,
-    "openDate": "2026-11-22 11:03:27"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "huya": {
     "live": false,
@@ -50,9 +50,9 @@
     "openDate": null
   },
   "toa": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 21563,
+    "openDate": "2026-11-22 17:57:23"
   },
   "rang": {
     "live": false,
