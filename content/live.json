@@ -1,8 +1,8 @@
 {
   "yuni": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 4589,
+    "openDate": "2026-11-22 11:03:27"
   },
   "huya": {
     "live": false,
@@ -60,9 +60,9 @@
     "openDate": null
   },
   "hiyori": {
-    "live": true,
-    "viewers": 12973,
-    "openDate": "2026-11-21 21:00:44"
+    "live": false,
+    "viewers": 0,
+    "openDate": null
   },
   "mary": {
     "live": false,
