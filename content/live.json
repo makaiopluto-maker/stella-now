@@ -5,9 +5,9 @@
     "openDate": null
   },
   "huya": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 2506,
+    "openDate": "2026-11-26 13:25:29"
   },
   "hina": {
     "live": false,
@@ -25,9 +25,9 @@
     "openDate": null
   },
   "tabi": {
-    "live": false,
-    "viewers": 0,
-    "openDate": null
+    "live": true,
+    "viewers": 4885,
+    "openDate": "2026-11-26 12:54:57"
   },
   "shibuki": {
     "live": false,
